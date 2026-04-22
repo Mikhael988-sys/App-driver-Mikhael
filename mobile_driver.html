@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#0d1117"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Driver"/>
+<title>Driver Mobile</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--surf:#161b22;--surf2:#1e2736;
+  --border:rgba(255,255,255,0.12);--fg:#e6edf3;--muted:#8b949e;
+  --accent:#f0b429;--ok:#2ea84a;--err:#e53935;
+  --bar-h:52px;--nav-h:64px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;font-size:16px}
+
+.screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.screen.active{display:flex}
+
+/* TOPBAR */
+.topbar{
+  padding:calc(var(--safe-top) + 10px) 14px 10px;
+  background:var(--surf);border-bottom:2px solid var(--accent);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:var(--bar-h);
+}
+.topbar h1{font-size:18px;font-weight:800;flex:1;letter-spacing:.02em}
+.back-btn{font-size:28px;line-height:1;cursor:pointer;color:var(--accent);padding:4px 8px;border-radius:8px}
+
+/* BOTTOM NAV */
+.bottomnav{
+  padding-bottom:var(--safe-bot);
+  display:flex;background:var(--surf);border-top:2px solid var(--border);flex-shrink:0;min-height:var(--nav-h);
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;border:none;background:transparent;color:var(--muted);
+  font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;
+  border-top:3px solid transparent;transition:all .15s;
+}
+.nav-btn.active{color:var(--accent);border-top-color:var(--accent);background:rgba(240,180,41,.06)}
+.nav-btn .ico{font-size:26px;line-height:1}
+
+/* SCROLL */
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.scroll::-webkit-scrollbar{display:none}
+
+/* INNER TABS */
+.itabs{display:flex;background:var(--surf);border-bottom:2px solid var(--border);flex-shrink:0}
+.itab{flex:1;padding:14px 6px;border:none;background:transparent;color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;letter-spacing:.03em}
+.itab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(240,180,41,.05)}
+
+/* CARDS */
+.card{background:var(--surf);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.card-row{display:flex;align-items:center;gap:12px;padding:16px 14px;cursor:pointer}
+.card-row:active{background:var(--surf2)}
+.dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.3)}
+.card-info{flex:1;min-width:0}
+.card-title{font-size:17px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.arrow{font-size:22px;color:var(--muted)}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:16px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:16px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:.02em}
+.btn:active{opacity:.75}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
+.btn.danger{background:rgba(229,57,53,.15);border-color:var(--err);color:var(--err)}
+.btn+.btn{margin-top:10px}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{width:auto;flex:1;padding:12px 8px;font-size:14px}
+
+/* SECTION LABEL */
+.slabel{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 10px}
+
+/* SCAN DISPLAY */
+.scan-box{border-radius:16px;border:3px solid var(--border);background:#060c14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px 16px;min-height:140px;transition:border-color .25s,background .25s;margin-bottom:12px}
+.scan-box.ok{border-color:var(--ok);background:rgba(46,168,74,.07)}
+.scan-box.err{border-color:var(--err);background:rgba(229,57,53,.07)}
+.scan-main{font-size:clamp(28px,8vw,56px);font-weight:900;letter-spacing:3px;text-align:center;line-height:1;color:var(--muted);font-family:'Courier New',monospace}
+.scan-main.ok{color:var(--ok)}
+.scan-main.err{color:var(--err)}
+.scan-pos{font-size:17px;font-weight:700;color:var(--muted);font-family:'Courier New',monospace;text-align:center}
+.scan-pos.ok{color:var(--ok)}
+.scan-pos.err{color:var(--err)}
+
+/* QR CAMERA */
+#qr-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;margin-bottom:10px;display:none}
+#qr-video{width:100%;display:block;max-height:42vh;object-fit:cover}
+#qr-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#qr-frame{width:55%;aspect-ratio:1;border:3px solid var(--accent);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
+#qr-status-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:8px 12px;font-size:13px;font-weight:600;text-align:center;color:var(--fg)}
+canvas#qr-canvas{display:none}
+
+/* HISTORIQUE */
+.hist-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surf);border:1px solid var(--border);border-radius:10px;margin-bottom:6px}
+.hist-code{flex:1;font-family:'Courier New',monospace;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.03em;white-space:nowrap;flex-shrink:0}
+.badge.ok{background:rgba(46,168,74,.2);color:var(--ok);border:1px solid rgba(46,168,74,.4)}
+.badge.err{background:rgba(229,57,53,.2);color:var(--err);border:1px solid rgba(229,57,53,.4)}
+
+/* COLIS LIST */
+.colis-item{display:flex;align-items:stretch;background:var(--surf);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.colis-num{min-width:48px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;font-family:'Courier New',monospace;color:var(--accent);background:var(--surf2);border-right:1px solid var(--border);flex-shrink:0}
+.colis-body{flex:1;padding:10px 12px;min-width:0}
+.colis-bc{font-size:14px;font-weight:800;font-family:'Courier New',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colis-addr{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+.colis-btns{display:flex;flex-direction:column;gap:4px;padding:8px 6px;flex-shrink:0}
+.mv-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mv-btn:active{background:var(--accent);color:#0d1117;border-color:var(--accent)}
+
+/* MAP */
+#tour-map{flex:1;min-height:0}
+
+/* IMPORT */
+.import-zone{border:2px dashed var(--border);border-radius:14px;padding:24px 16px;text-align:center;color:var(--muted);font-size:14px;margin-bottom:12px}
+
+/* STATS */
+.stats-row{display:flex;gap:8px;margin-bottom:14px}
+.stat{flex:1;background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center}
+.stat .v{font-size:22px;font-weight:900;font-family:'Courier New',monospace}
+.stat .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.stat.ok .v{color:var(--ok)}
+.stat.err .v{color:var(--err)}
+.stat.acc .v{color:var(--accent)}
+
+/* TOAST */
+#toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-bot) + 10px);left:50%;transform:translateX(-50%) translateY(10px);background:#222;color:#fff;padding:12px 22px;border-radius:24px;font-size:15px;font-weight:700;opacity:0;transition:all .3s;pointer-events:none;z-index:9999;white-space:nowrap;border:1px solid var(--border)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.empty{text-align:center;color:var(--muted);padding:36px 16px;font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<!-- ══ ACCUEIL ══ -->
+<div class="screen active" id="s-home">
+  <div class="topbar"><h1>📦 Tournées</h1><div id="home-badge" style="display:none;background:var(--ok);color:#fff;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:800"></div></div>
+  <div class="scroll">
+    <div class="slabel">Charger une tournée</div>
+    <div class="import-zone">
+      <div style="font-size:32px;margin-bottom:8px">📂</div>
+      <div style="margin-bottom:14px">Importez le fichier JSON<br/>envoyé par le gestionnaire</div>
+      <input type="file" id="jsonInput" accept=".json" style="display:none"/>
+      <button class="btn primary" id="btnImport">Choisir un fichier JSON</button>
+    </div>
+    <div id="loaded-section" style="display:none">
+      <div class="slabel" style="margin-top:6px">Mes tournées</div>
+      <div id="loaded-list"></div>
+      <button class="btn danger" id="btnClearAll" style="margin-top:4px">🗑 Effacer tout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCAN COLIS ══ -->
+<div class="screen" id="s-scan">
+  <div class="topbar">
+    <span class="back-btn" onclick="goHome()">‹</span>
+    <h1>Scanner un colis</h1>
+  </div>
+  <div class="scroll" style="display:flex;flex-direction:column;gap:10px">
+
+    <div class="scan-box" id="scanBox">
+      <div class="scan-main" id="scanMain">EN ATTENTE</div>
+      <div class="scan-pos" id="scanPos"></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat acc"><div class="v" id="sc-total">0</div><div class="l">Codes</div></div>
+      <div class="stat ok"><div class="v" id="sc-found">0</div><div class="l">Trouvés</div></div>
+      <div class="stat err"><div class="v" id="sc-unk">0</div><div class="l">Inconnus</div></div>
+    </div>
+
+    <!-- Caméra QR -->
+    <div id="qr-wrap">
+      <video id="qr-video" playsinline autoplay muted></video>
+      <div id="qr-overlay"><div id="qr-frame"></div></div>
+      <div id="qr-status-bar">Pointez vers le QR code du colis…</div>
+    </div>
+    <canvas id="qr-canvas"></canvas>
+
+    <div class="btn-row">
+      <button class="btn primary" id="btnCamOn">📷 Caméra</button>
+      <button class="btn" id="btnCamOff" style="display:none">⏹ Arrêter</button>
+      <button class="btn" id="btnScanClear">Effacer</button>
+    </div>
+
+    <div class="slabel" style="margin-top:4px">Historique</div>
+    <div id="scan-hist"></div>
+    <button class="btn danger" id="btnScanReset" style="margin-top:4px">🗑 Vider l'historique</button>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-btn active" onclick="showMainTab('scan')"><span class="ico">📦</span>SCANNER</button>
+    <button class="nav-btn" onclick="showMainTab('tours')"><span class="ico">🗂️</span>TOURNÉES</button>
+  </div>
+</div>
+
+<!-- ══ LISTE TOURNÉES ══ -->
+<div class="screen" id="s-tours">
+  <div class="topbar">
+    <span class="back-btn" onclick="goHome()">‹</span>
+    <h1>Mes tournées</h1>
+  </div>
+  <div class="scroll"><div id="tours-list"></div></div>
+  <div class="bottomnav">
+    <button class="nav-btn" onclick="showMainTab('scan')"><span class="ico">📦</span>SCANNER</button>
+    <button class="nav-btn active" onclick="showMainTab('tours')"><span class="ico">🗂️</span>TOURNÉES</button>
+  </div>
+</div>
+
+<!-- ══ DÉTAIL TOURNÉE ══ -->
+<div class="screen" id="s-detail">
+  <div class="topbar">
+    <span class="back-btn" onclick="showScreen('s-tours')">‹</span>
+    <h1 id="detail-title">Tournée</h1>
+  </div>
+  <div class="itabs">
+    <button class="itab active" id="itab-carte" onclick="switchItab('carte')">🗺 CARTE</button>
+    <button class="itab" id="itab-liste" onclick="switchItab('liste')">📋 COLIS</button>
+  </div>
+  <div id="pane-carte" style="flex:1;display:flex;flex-direction:column;min-height:0">
+    <div id="tour-map"></div>
+  </div>
+  <div id="pane-liste" style="display:none;flex:1;overflow-y:auto;padding:10px;-webkit-overflow-scrolling:touch">
+    <div id="colis-list"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════ STATE ════
+let loadedTours=[], scanMap={}, curTourIdx=null;
+let scanHist=[], foundCnt=0, unkCnt=0;
+let leafMap=null;
+let qrStream=null, qrFrame=null, qrScanCnt=0, qrLastCode='', qrLastTime=0;
+
+// ════ UTILS ════
+const normCode=s=>(s||'').replace(/[\u200b\ufeff\xa0]/g,'').trim().replace(/\s+/g,'').toUpperCase();
+
+function toast(msg,dur=2500){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='s-detail') setTimeout(()=>{if(leafMap) leafMap.invalidateSize();},120);
+}
+
+function goHome(){ stopCam(); showScreen('s-home'); }
+
+function showMainTab(tab){
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',['scan','tours'][i]===tab));
+  if(tab==='scan') showScreen('s-scan');
+  else{ showScreen('s-tours'); renderToursList(); }
+}
+
+// ════ IMPORT JSON ════
+document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('jsonInput').click());
+document.getElementById('jsonInput').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const txt=await f.text();
+    let raw; try{raw=JSON.parse(txt);}catch{toast('❌ Fichier JSON invalide');e.target.value='';return;}
+    const tours=parseTourPayload(raw);
+    if(!tours.length){toast('⚠️ Aucune tournée trouvée');e.target.value='';return;}
+    tours.forEach(t=>{
+      const idx=loadedTours.findIndex(x=>x.name===t.name);
+      if(idx>=0) loadedTours[idx]=t; else loadedTours.push(t);
+    });
+    rebuildScanMap(); renderHome();
+    toast('✅ '+tours.length+' tournée(s) chargée(s) !');
+  }catch(err){toast('❌ Erreur : '+(err.message||err));}
+  finally{e.target.value='';}
+});
+
+function parseTourPayload(raw){
+  if(raw&&raw.colis&&raw.name) return [raw];
+  if(raw&&typeof raw==='object'){
+    const byTour={};
+    for(const[bc,v] of Object.entries(raw)){
+      if(typeof v!=='object') continue;
+      const name=String(v.tournee||''); if(!name) continue;
+      if(!byTour[name]) byTour[name]={name,color:seedColor(name),colis:[]};
+      byTour[name].colis.push({
+        bc, pos:Number(v.position)||0,
+        lat:Number(v.lat)||0, lon:Number(v.lon)||0,
+        adr:v.adresse||v.adr||'', ville:v.ville||'', cp:v.cp||''
+      });
+    }
+    Object.values(byTour).forEach(t=>t.colis.sort((a,b)=>a.pos-b.pos));
+    return Object.values(byTour);
+  }
+  return [];
+}
+
+function seedColor(s){let h=0;for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360;return `hsl(${h},75%,55%)`;}
+
+function rebuildScanMap(){
+  scanMap={};
+  loadedTours.forEach(t=>{
+    t.colis.forEach((c,i)=>{
+      scanMap[normCode(c.bc)]={tourName:t.name,pos:c.pos||(i+1),total:t.colis.length};
+    });
+  });
+  document.getElementById('sc-total').textContent=Object.keys(scanMap).length;
+}
+
+// ════ HOME ════
+function renderHome(){
+  const sec=document.getElementById('loaded-section');
+  const lst=document.getElementById('loaded-list');
+  const badge=document.getElementById('home-badge');
+  if(!loadedTours.length){sec.style.display='none';badge.style.display='none';return;}
+  sec.style.display='block';
+  badge.style.display='inline-flex';
+  badge.textContent=loadedTours.length+' tournée'+(loadedTours.length>1?'s':'');
+  lst.innerHTML=loadedTours.map((t,i)=>`
+    <div class="card"><div class="card-row" onclick="openDetail(${i})">
+      <div class="dot" style="background:${t.color}"></div>
+      <div class="card-info"><div class="card-title">${t.name}</div><div class="card-sub">${t.colis.length} colis</div></div>
+      <div class="arrow">›</div>
+    </div></div>`).join('');
+}
+
+document.getElementById('btnClearAll').addEventListener('click',()=>{
+  if(!confirm('Effacer toutes les tournées ?')) return;
+  loadedTours=[];scanMap={};foundCnt=0;unkCnt=0;scanHist=[];
+  rebuildScanMap();renderHome();renderScanHist();toast('Données effacées');
+});
+
+// ════ TOURS LIST ════
+function renderToursList(){
+  const el=document.getElementById('tours-list');
+  if(!loadedTours.length){el.innerHTML='<div class="empty">Aucune tournée chargée.<br/>Retournez à l\'accueil<br/>pour importer un fichier JSON.</div>';return;}
+  el.innerHTML=loadedTours.map((t,i)=>`
+    <div class="card"><div class="card-row" onclick="openDetail(${i})">
+      <div class="dot" style="background:${t.color}"></div>
+      <div class="card-info"><div class="card-title">${t.name}</div><div class="card-sub">${t.colis.length} colis</div></div>
+      <div class="arrow">›</div>
+    </div></div>`).join('');
+}
+
+// ════ DÉTAIL TOURNÉE ════
+function openDetail(idx){
+  curTourIdx=idx;
+  const t=loadedTours[idx];
+  document.getElementById('detail-title').textContent=t.name;
+  showScreen('s-detail');
+  switchItab('carte');
+  buildMap(t);
+}
+
+function switchItab(tab){
+  document.getElementById('itab-carte').classList.toggle('active',tab==='carte');
+  document.getElementById('itab-liste').classList.toggle('active',tab==='liste');
+  document.getElementById('pane-carte').style.display=tab==='carte'?'flex':'none';
+  document.getElementById('pane-liste').style.display=tab==='liste'?'block':'none';
+  if(tab==='carte'&&leafMap) setTimeout(()=>leafMap.invalidateSize(),60);
+  if(tab==='liste') renderColisList();
+}
+
+function buildMap(t){
+  const container=document.getElementById('tour-map');
+  container.style.cssText='flex:1;min-height:0;';
+  if(leafMap){leafMap.remove();leafMap=null;}
+  leafMap=L.map(container,{zoomControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© OSM © CARTO',subdomains:'abcd',maxZoom:19
+  }).addTo(leafMap);
+  const pts=t.colis.filter(c=>c.lat&&c.lon);
+  if(!pts.length){container.innerHTML='<div class="empty">Pas de coordonnées GPS<br/>disponibles.</div>';return;}
+  const lls=pts.map(c=>[c.lat,c.lon]);
+  pts.forEach(c=>{
+    L.marker([c.lat,c.lon],{
+      icon:L.divIcon({
+        className:'',
+        html:`<div style="background:${t.color};color:#000;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5)">${c.pos}</div>`,
+        iconSize:[28,28],iconAnchor:[14,14]
+      })
+    }).bindPopup(`<b>${c.pos}. ${c.bc}</b>${c.adr?'<br/>'+c.adr:''}${c.ville?'<br/>'+c.cp+' '+c.ville:''}`)
+    .addTo(leafMap);
+  });
+  if(lls.length>1) L.polyline(lls,{color:t.color,weight:2.5,opacity:.65,dashArray:'7,7'}).addTo(leafMap);
+  leafMap.fitBounds(L.latLngBounds(lls).pad(.12));
+}
+
+// ════ LISTE COLIS ════
+function renderColisList(){
+  if(curTourIdx===null) return;
+  const t=loadedTours[curTourIdx];
+  const el=document.getElementById('colis-list');
+  if(!t.colis.length){el.innerHTML='<div class="empty">Aucun colis.</div>';return;}
+  el.innerHTML=t.colis.map((c,i)=>`
+    <div class="colis-item">
+      <div class="colis-num">${i+1}</div>
+      <div class="colis-body">
+        <div class="colis-bc">${c.bc}</div>
+        ${c.adr?`<div class="colis-addr">📍 ${c.adr}</div>`:''}
+        ${(c.cp||c.ville)?`<div class="colis-addr">🏙 ${[c.cp,c.ville].filter(Boolean).join(' ')}</div>`:''}
+        ${(!c.adr&&!c.cp&&!c.ville)?`<div class="colis-addr">— Adresse non disponible</div>`:''}
+      </div>
+      <div class="colis-btns">
+        <div class="mv-btn" onclick="moveUp(${i})">↑</div>
+        <div class="mv-btn" onclick="moveDown(${i})">↓</div>
+      </div>
+    </div>`).join('');
+}
+
+function moveUp(i){
+  if(i===0) return;
+  const t=loadedTours[curTourIdx];
+  [t.colis[i-1],t.colis[i]]=[t.colis[i],t.colis[i-1]];
+  t.colis.forEach((c,j)=>c.pos=j+1);
+  rebuildScanMap();renderColisList();buildMap(t);
+}
+function moveDown(i){
+  const t=loadedTours[curTourIdx];
+  if(i>=t.colis.length-1) return;
+  [t.colis[i],t.colis[i+1]]=[t.colis[i+1],t.colis[i]];
+  t.colis.forEach((c,j)=>c.pos=j+1);
+  rebuildScanMap();renderColisList();buildMap(t);
+}
+
+// ════ CAMÉRA QR ════
+document.getElementById('btnCamOn').addEventListener('click', startCam);
+document.getElementById('btnCamOff').addEventListener('click', stopCam);
+
+async function startCam(){
+  const statusBar=document.getElementById('qr-status-bar');
+  statusBar.textContent='Accès caméra…';
+  try{
+    qrStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+    });
+    const video=document.getElementById('qr-video');
+    video.srcObject=qrStream;
+    await video.play();
+    document.getElementById('qr-wrap').style.display='block';
+    document.getElementById('btnCamOn').style.display='none';
+    document.getElementById('btnCamOff').style.display='';
+    statusBar.textContent='Pointez vers le QR code du colis…';
+    qrScanCnt=0; qrLastCode=''; qrLastTime=0;
+    scanQRLoop();
+  }catch(err){
+    statusBar.textContent='Caméra indisponible : '+(err.message||err);
+  }
+}
+
+function stopCam(){
+  if(qrFrame){cancelAnimationFrame(qrFrame);qrFrame=null;}
+  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
+  const video=document.getElementById('qr-video');
+  video.srcObject=null;
+  document.getElementById('qr-wrap').style.display='none';
+  document.getElementById('btnCamOn').style.display='';
+  document.getElementById('btnCamOff').style.display='none';
+}
+
+function scanQRLoop(){
+  if(!qrStream){return;}
+  const video=document.getElementById('qr-video');
+  const canvas=document.getElementById('qr-canvas');
+  const statusBar=document.getElementById('qr-status-bar');
+
+  if(video.readyState<2||video.videoWidth===0){
+    qrFrame=requestAnimationFrame(scanQRLoop);return;
+  }
+
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+  let imageData;
+  try{imageData=ctx.getImageData(0,0,canvas.width,canvas.height);}
+  catch(e){qrFrame=requestAnimationFrame(scanQRLoop);return;}
+
+  const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'attemptBoth'});
+
+  if(code&&code.data){
+    const now=Date.now();
+    // Anti-doublon : même code dans les 2s → on ignore
+    if(code.data===qrLastCode&&now-qrLastTime<2000){
+      qrFrame=requestAnimationFrame(scanQRLoop);return;
+    }
+    qrLastCode=code.data;
+    qrLastTime=now;
+    const decoded=normCode(code.data);
+    doScan(decoded);
+    statusBar.textContent='✅ Scanné : '+decoded.substring(0,20)+(decoded.length>20?'…':'');
+    setTimeout(()=>{if(qrStream) statusBar.textContent='Pointez vers le QR code du colis…';},1500);
+  } else {
+    qrScanCnt++;
+    if(qrScanCnt%90===0) statusBar.textContent='📷 Recherche… ('+(qrScanCnt/30|0)+'s)';
+  }
+
+  qrFrame=requestAnimationFrame(scanQRLoop);
+}
+
+// ════ SCAN LOGIQUE ════
+function doScan(code){
+  if(!code) return;
+  const info=scanMap[code];
+  const scanMain=document.getElementById('scanMain');
+  const scanPos=document.getElementById('scanPos');
+  const scanBox=document.getElementById('scanBox');
+  if(!info){
+    unkCnt++;
+    scanMain.textContent='INCONNU';scanMain.className='scan-main err';
+    scanPos.textContent=code;scanPos.className='scan-pos err';
+    scanBox.className='scan-box err';
+    scanHist.unshift({code,ok:false,label:'INCONNU',sub:''});
+  }else{
+    foundCnt++;
+    scanMain.textContent='TOURNÉE '+info.tourName;scanMain.className='scan-main ok';
+    scanPos.textContent='Position '+info.pos+' / '+info.total;scanPos.className='scan-pos ok';
+    scanBox.className='scan-box ok';
+    scanHist.unshift({code,ok:true,label:info.tourName,sub:'Pos '+info.pos+'/'+info.total});
+  }
+  if(scanHist.length>150) scanHist.pop();
+  document.getElementById('sc-found').textContent=foundCnt;
+  document.getElementById('sc-unk').textContent=unkCnt;
+  renderScanHist();
+}
+
+function renderScanHist(){
+  const el=document.getElementById('scan-hist');
+  if(!scanHist.length){el.innerHTML='<div class="empty">Aucun scan encore.</div>';return;}
+  el.innerHTML=scanHist.map(r=>`
+    <div class="hist-item">
+      <div class="hist-code">${r.code}</div>
+      <span class="badge ${r.ok?'ok':'err'}">${r.ok?r.label+' · '+r.sub:'INCONNU'}</span>
+    </div>`).join('');
+}
+
+document.getElementById('btnScanClear').addEventListener('click',()=>{
+  document.getElementById('scanMain').textContent='EN ATTENTE';
+  document.getElementById('scanMain').className='scan-main';
+  document.getElementById('scanPos').textContent='';
+  document.getElementById('scanPos').className='scan-pos';
+  document.getElementById('scanBox').className='scan-box';
+});
+
+document.getElementById('btnScanReset').addEventListener('click',()=>{
+  if(!confirm("Vider l'historique ?")) return;
+  scanHist=[];foundCnt=0;unkCnt=0;
+  document.getElementById('sc-found').textContent=0;
+  document.getElementById('sc-unk').textContent=0;
+  renderScanHist();
+});
+
+// Arrêter la caméra si on quitte l'écran scan
+document.querySelectorAll('.back-btn').forEach(b=>b.addEventListener('click',stopCam));
+
+// Init
+renderScanHist();
+</script>
+</body>
+</html>
