@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -193,6 +194,21 @@ canvas#qr-canvas{display:none}
     <button class="btn primary" id="btnCamOn" style="flex:2;padding:12px 8px">📷 Caméra</button>
     <button class="btn" id="btnCamOff" style="flex:2;padding:12px 8px;display:none">⏹ Arrêter</button>
     <button class="btn" id="btnScanClear" style="flex:1;padding:12px 8px">Effacer</button>
+    <button class="btn" id="btnManual" style="flex:1;padding:12px 8px" title="Saisie manuelle">⌨️</button>
+  </div>
+
+  <!-- Modal saisie manuelle -->
+  <div id="manualModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;align-items:flex-end;justify-content:center">
+    <div style="background:var(--surf);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:16px;font-weight:800;text-align:center">Saisie manuelle</div>
+      <input id="manualInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        placeholder="Entrez le code du colis…"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:16px;font-family:'Courier New',monospace;outline:none"/>
+      <div style="display:flex;gap:10px">
+        <button id="btnManualCancel" class="btn" style="flex:1;padding:14px">Annuler</button>
+        <button id="btnManualOk" class="btn primary" style="flex:2;padding:14px">✅ Valider</button>
+      </div>
+    </div>
   </div>
 
   <div class="bottomnav">
@@ -564,6 +580,33 @@ document.getElementById('btnScanClear').addEventListener('click',()=>{
 
 // Arrêter la caméra si on quitte l'écran scan
 document.querySelectorAll('.back-btn').forEach(b=>b.addEventListener('click',stopCam));
+
+// ════ SAISIE MANUELLE ════
+const manualModal = document.getElementById('manualModal');
+const manualInput = document.getElementById('manualInput');
+
+document.getElementById('btnManual').addEventListener('click',()=>{
+  manualModal.style.display='flex';
+  manualInput.value='';
+  setTimeout(()=>manualInput.focus(),100);
+});
+document.getElementById('btnManualCancel').addEventListener('click',()=>{
+  manualModal.style.display='none';
+});
+document.getElementById('btnManualOk').addEventListener('click',()=>{
+  const code=normCode(manualInput.value);
+  if(code){ doScan(code); manualModal.style.display='none'; }
+});
+manualInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const code=normCode(manualInput.value);
+    if(code){ doScan(code); manualModal.style.display='none'; }
+  }
+});
+// Fermer en cliquant sur le fond
+manualModal.addEventListener('click',e=>{
+  if(e.target===manualModal) manualModal.style.display='none';
+});
 </script>
 </body>
 </html>
