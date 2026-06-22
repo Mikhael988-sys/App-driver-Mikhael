@@ -545,6 +545,45 @@ function scanQRLoop(){
 }
 
 // ════ SCAN LOGIQUE ════
+// ════ SONS ════
+let audioCtx=null;
+function getAudioCtx(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+function beepOk(){
+  try{
+    const ctx=getAudioCtx();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type='sine';
+    osc.frequency.setValueAtTime(1200,ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(900,ctx.currentTime+0.12);
+    gain.gain.setValueAtTime(0.4,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.18);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.18);
+  }catch(e){}
+}
+function beepErr(){
+  try{
+    const ctx=getAudioCtx();
+    [0, 0.2].forEach(delay=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type='square';
+      osc.frequency.setValueAtTime(300,ctx.currentTime+delay);
+      gain.gain.setValueAtTime(0.3,ctx.currentTime+delay);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.12);
+      osc.start(ctx.currentTime+delay); osc.stop(ctx.currentTime+delay+0.12);
+    });
+  }catch(e){}
+}
+// Initialiser l'AudioContext au premier tap (requis sur mobile)
+document.body.addEventListener('touchstart',()=>getAudioCtx(),{once:true});
+
 function doScan(code){
   if(!code) return;
   const info=scanMap[code];
@@ -556,11 +595,13 @@ function doScan(code){
     scanMain.textContent='INCONNU';scanMain.className='scan-main err';
     scanPos.textContent=code;scanPos.className='scan-pos err';
     scanBox.className='scan-box-inline err';
+    beepErr();
   }else{
     foundCnt++;
     scanMain.textContent='TOURNÉE '+info.tourName;scanMain.className='scan-main ok';
     scanPos.textContent='Position '+info.pos+' / '+info.total;scanPos.className='scan-pos ok';
     scanBox.className='scan-box-inline ok';
+    beepOk();
   }
   document.getElementById('sc-found').textContent=foundCnt;
   document.getElementById('sc-unk').textContent=unkCnt;
