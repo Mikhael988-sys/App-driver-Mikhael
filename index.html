@@ -195,6 +195,7 @@ canvas#qr-canvas{display:none}
     <button class="btn" id="btnCamOff" style="flex:2;padding:12px 8px;display:none">⏹ Arrêter</button>
     <button class="btn" id="btnScanClear" style="flex:1;padding:12px 8px">Effacer</button>
     <button class="btn" id="btnManual" style="flex:1;padding:12px 8px" title="Saisie manuelle">⌨️</button>
+    <button class="btn" id="btnAdresse" style="flex:1;padding:12px 8px" title="Recherche par adresse">📍</button>
   </div>
 
   <!-- Modal saisie manuelle -->
@@ -207,6 +208,21 @@ canvas#qr-canvas{display:none}
       <div style="display:flex;gap:10px">
         <button id="btnManualCancel" class="btn" style="flex:1;padding:14px">Annuler</button>
         <button id="btnManualOk" class="btn primary" style="flex:2;padding:14px">✅ Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal recherche par adresse -->
+  <div id="addrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;align-items:flex-end;justify-content:center">
+    <div style="background:var(--surf);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:16px;font-weight:800;text-align:center">📍 Colis inconnu — Recherche par adresse</div>
+      <input id="addrInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+        placeholder="Ex: 41 Avenue Henri Barbusse 69100 Villeurbanne"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:15px;outline:none"/>
+      <div id="addrResult" style="display:none;padding:14px 16px;border-radius:12px;font-size:15px;font-weight:800;text-align:center;border:2px solid transparent"></div>
+      <div style="display:flex;gap:10px">
+        <button id="btnAddrCancel" class="btn" style="flex:1;padding:14px">Annuler</button>
+        <button id="btnAddrOk" class="btn primary" style="flex:2;padding:14px">🔍 Chercher</button>
       </div>
     </div>
   </div>
@@ -282,12 +298,32 @@ function showMainTab(tab){
 }
 
 // ════ IMPORT JSON ════
+let loadedZones=[]; // zones GeoJSON extraites de _carte
+
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('jsonInput').click());
 document.getElementById('jsonInput').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
     const txt=await f.text();
     let raw; try{raw=JSON.parse(txt);}catch{toast('❌ Fichier JSON invalide');e.target.value='';return;}
+
+    // Extraire les zones de _carte si présentes
+    loadedZones=[];
+    if(raw._carte&&raw._carte.tours){
+      raw._carte.tours.forEach(t=>{
+        if(t.zone&&t.zone.geometry&&t.zone.geometry.coordinates){
+          const coords=t.zone.geometry.coordinates[0];
+          if(coords&&coords.length>=3){
+            loadedZones.push({
+              name:t.name,
+              // GeoJSON = [lon, lat] → on convertit en {lat,lon}
+              pts:coords.map(c=>({lat:c[1],lon:c[0]}))
+            });
+          }
+        }
+      });
+    }
+
     const tours=parseTourPayload(raw);
     if(!tours.length){toast('⚠️ Aucune tournée trouvée');e.target.value='';return;}
     tours.forEach(t=>{
@@ -299,6 +335,18 @@ document.getElementById('jsonInput').addEventListener('change',async e=>{
   }catch(err){toast('❌ Erreur : '+(err.message||err));}
   finally{e.target.value='';}
 });
+
+// Point dans un polygone (ray casting)
+function pointInPoly(lat,lon,pts){
+  let inside=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+    const xi=pts[i].lat,yi=pts[i].lon;
+    const xj=pts[j].lat,yj=pts[j].lon;
+    if(((yi>lon)!==(yj>lon))&&(lat<(xj-xi)*(lon-yi)/(yj-yi)+xi))
+      inside=!inside;
+  }
+  return inside;
+}
 
 function parseTourPayload(raw){
   if(raw&&raw.colis&&raw.name) return [raw];
@@ -583,6 +631,95 @@ function beepErr(){
 }
 // Initialiser l'AudioContext au premier tap (requis sur mobile)
 document.body.addEventListener('touchstart',()=>getAudioCtx(),{once:true});
+
+// ════ RECHERCHE PAR ADRESSE ════
+const addrModal=document.getElementById('addrModal');
+const addrInput=document.getElementById('addrInput');
+const addrResult=document.getElementById('addrResult');
+
+document.getElementById('btnAdresse').addEventListener('click',()=>{
+  addrModal.style.display='flex';
+  addrInput.value='';
+  addrResult.style.display='none';
+  setTimeout(()=>addrInput.focus(),100);
+});
+document.getElementById('btnAddrCancel').addEventListener('click',()=>{
+  addrModal.style.display='none';
+});
+addrModal.addEventListener('click',e=>{if(e.target===addrModal) addrModal.style.display='none';});
+
+document.getElementById('btnAddrOk').addEventListener('click',rechercherAdresseMobile);
+addrInput.addEventListener('keydown',e=>{if(e.key==='Enter') rechercherAdresseMobile();});
+
+async function rechercherAdresseMobile(){
+  const addr=addrInput.value.trim();
+  if(!addr) return;
+
+  addrResult.style.display='block';
+  addrResult.style.border='2px solid rgba(255,255,255,.2)';
+  addrResult.style.background='rgba(255,255,255,.05)';
+  addrResult.style.color='var(--fg)';
+  addrResult.textContent='⏳ Recherche en cours…';
+
+  try{
+    const url='https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(addr)+'&limit=1';
+    const resp=await fetch(url);
+    const data=await resp.json();
+
+    if(!data.features||!data.features.length){
+      addrResult.style.border='2px solid var(--err)';
+      addrResult.style.background='rgba(229,57,53,.12)';
+      addrResult.style.color='var(--err)';
+      addrResult.textContent='❌ Adresse introuvable';
+      return;
+    }
+
+    const feat=data.features[0];
+    const lon=feat.geometry.coordinates[0];
+    const lat=feat.geometry.coordinates[1];
+    const label=feat.properties.label;
+
+    let bestName=null;
+
+    // 1. Chercher dans les zones dessinées (_carte) en priorité
+    if(loadedZones.length){
+      for(const z of loadedZones){
+        if(pointInPoly(lat,lon,z.pts)){bestName=z.name;break;}
+      }
+    }
+
+    // 2. Fallback : tournée dont les colis sont les plus proches
+    if(!bestName){
+      let bestDist=Infinity;
+      loadedTours.forEach(t=>{
+        t.colis.forEach(co=>{
+          if(!co.lat||!co.lon) return;
+          const dl=co.lat-lat,dn=co.lon-lon;
+          const d=dl*dl+dn*dn;
+          if(d<bestDist){bestDist=d;bestName=t.name;}
+        });
+      });
+    }
+
+    if(bestName){
+      addrResult.style.border='2px solid var(--ok)';
+      addrResult.style.background='rgba(46,168,74,.15)';
+      addrResult.style.color='var(--ok)';
+      addrResult.innerHTML='✅ Tournée<br/><span style="font-size:22px">'+bestName+'</span>'
+        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+label+'</div>';
+    } else {
+      addrResult.style.border='2px solid var(--warn)';
+      addrResult.style.background='rgba(240,180,41,.12)';
+      addrResult.style.color='var(--warn)';
+      addrResult.textContent='⚠️ Aucune tournee chargee';
+    }
+  }catch(e){
+    addrResult.style.border='2px solid var(--err)';
+    addrResult.style.background='rgba(229,57,53,.12)';
+    addrResult.style.color='var(--err)';
+    addrResult.textContent='❌ Erreur reseau';
+  }
+}
 
 function doScan(code){
   if(!code) return;
