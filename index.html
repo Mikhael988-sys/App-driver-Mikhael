@@ -439,8 +439,8 @@ function buildMap(t){
   container.style.cssText='flex:1;min-height:0;';
   if(leafMap){leafMap.remove();leafMap=null;}
   leafMap=L.map(container,{zoomControl:true});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-    attribution:'© OSM © CARTO',subdomains:'abcd',maxZoom:19
+  L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap',subdomains:'abc',maxZoom:20
   }).addTo(leafMap);
   const pts=t.colis.filter(c=>c.lat&&c.lon);
   if(!pts.length){container.innerHTML='<div class="empty">Pas de coordonnées GPS<br/>disponibles.</div>';return;}
