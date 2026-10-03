@@ -880,7 +880,8 @@ function renderSession(){
   const start=new Date(session.startedAt);
   const hh=start.toLocaleDateString('fr-FR')+' '+start.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   el.innerHTML=
-    `👤 <b>${escHtml(localStorage.getItem('driverName')||'(nom non renseigné)')}</b><br/>`+
+    `👤 <b>${escHtml(session.trieur||localStorage.getItem('driverName')||'(nom non renseigné)')}</b>`+
+    ` · 📅 Tri du <b>${session.workDate?fmtDateFR(session.workDate):'(date non renseignée)'}</b><br/>`+
     `📦 <b>${codes.length}</b> TN scannés`+
     (unk.length?` · dont <b style="color:var(--err)">${unk.length}</b> hors liste${unkNoTour?` (${unkNoTour} sans tournée)`:''}`:'')+
     (Object.keys(session.addrOnly).length?`<br/>📍 ${Object.keys(session.addrOnly).length} colis saisis par adresse`:'')+
@@ -1100,25 +1101,27 @@ function buildTrieurExport(){
   const adresses=Object.values(session.addrOnly).map(a=>({adresse:a.label,tournee:a.tour||''}));
   return {
     type:'trieur', version:1,
-    trieur:localStorage.getItem('driverName')||'',
+    trieur:session.trieur||localStorage.getItem('driverName')||'',
+    dateTri:session.workDate||'',
     sessionStart:session.startedAt,
     exportedAt:new Date().toISOString(),
     nbTN:tns.length,
-    tns, inconnus, adresses
+    tns, inconnus, adresses,
+    scans:tns.map(c=>[c,session.scans[c].t])   // horodatage de chaque scan (ms)
   };
 }
 
 function trieurFile(){
   const data=buildTrieurExport();
   const d=new Date(), p=n=>String(n).padStart(2,'0');
-  const stamp=d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes());
+  const stamp=(data.dateTri||todayISO()).replace(/-/g,'')+'_export'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
   const who=(data.trieur||'trieur').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w-]+/g,'_');
   const name='trieur_'+who+'_'+stamp+'.json';
   return {data,name,file:new File([JSON.stringify(data,null,1)],name,{type:'application/json'})};
 }
 
 function checkBeforeExport(){
-  if(!localStorage.getItem('driverName')){toast('Renseignez d\'abord votre nom');openNameModal();return false;}
+  if(!(session.trieur||localStorage.getItem('driverName'))||!session.workDate){toast('Renseignez votre nom et la date');openNameModal();return false;}
   if(!sessionCount()){toast('Aucun colis scanné');return false;}
   return true;
 }
@@ -1151,7 +1154,8 @@ document.getElementById('btnNewSession').addEventListener('click',()=>{
   const n=sessionCount();
   if(n&&!confirm('Démarrer une nouvelle session ?\n\nLes '+n+' colis scannés seront effacés.\nPensez à les exporter avant.')) return;
   session=newSession(); saveSession();
-  toast('🔄 Nouvelle session démarrée');
+  toast('🔄 Nouvelle session : confirmez le nom et la date');
+  openNameModal();
 });
 
 // ════ INIT ════
