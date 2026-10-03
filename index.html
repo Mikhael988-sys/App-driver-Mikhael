@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -97,15 +96,10 @@ html,body{height:100%;background:var(--bg);color:var(--fg);font-family:-apple-sy
 .scan-pos.err{color:var(--err)}
 
 /* QR CAMERA */
-/* qr-wrap géré inline */
-/* qr-video géré inline */
 #qr-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
 #qr-frame{width:70%;aspect-ratio:1;border:4px solid var(--accent);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
 #qr-status-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:8px 12px;font-size:13px;font-weight:600;text-align:center;color:var(--fg)}
 canvas#qr-canvas{display:none}
-
-/* HISTORIQUE */
-
 
 /* COLIS LIST */
 .colis-item{display:flex;align-items:stretch;background:var(--surf);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden}
@@ -162,13 +156,14 @@ canvas#qr-canvas{display:none}
 
 <!-- ══ SCAN COLIS ══ -->
 <div class="screen" id="s-scan" style="flex-direction:column">
-  <!-- Topbar avec compteurs intégrés -->
+  <!-- Topbar avec compteur TRIÉS -->
   <div class="topbar">
     <span class="back-btn" onclick="goHome()">‹</span>
     <h1>Scanner un colis</h1>
-    <div style="display:flex;gap:10px;align-items:center;flex-shrink:0">
-      <span style="font-size:13px;color:var(--ok);font-weight:800"><span id="sc-found">0</span> ✓</span>
-      <span style="font-size:13px;color:var(--err);font-weight:800"><span id="sc-unk">0</span> ✗</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span style="font-size:12px;color:var(--muted);font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="sc-name"></span>
+      <span style="font-size:13px;color:var(--ok);font-weight:800"><span id="sc-found">0</span> triés ✓</span>
+      <span id="sc-edit-name" title="Changer de nom" style="font-size:18px;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:6px" onclick="openNameModal()">✏️</span>
       <span id="sc-total" style="display:none">0</span>
     </div>
   </div>
@@ -195,7 +190,7 @@ canvas#qr-canvas{display:none}
     <button class="btn" id="btnCamOff" style="flex:2;padding:12px 8px;display:none">⏹ Arrêter</button>
     <button class="btn" id="btnScanClear" style="flex:1;padding:12px 8px">Effacer</button>
     <button class="btn" id="btnManual" style="flex:1;padding:12px 8px" title="Saisie manuelle">⌨️</button>
-    <button class="btn" id="btnAdresse" style="flex:1;padding:12px 8px" title="Recherche par adresse">📍</button>
+    <button class="btn" id="btnAdresse" style="flex:1;padding:12px 8px" title="Colis hors liste — saisir adresse">📍</button>
   </div>
 
   <!-- Modal saisie manuelle -->
@@ -212,10 +207,11 @@ canvas#qr-canvas{display:none}
     </div>
   </div>
 
-  <!-- Modal recherche par adresse -->
+  <!-- Modal colis hors liste — saisie adresse -->
   <div id="addrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;align-items:flex-end;justify-content:center">
     <div style="background:var(--surf);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:14px">
-      <div style="font-size:16px;font-weight:800;text-align:center">📍 Colis inconnu — Recherche par adresse</div>
+      <div style="font-size:16px;font-weight:800;text-align:center">📍 Colis hors liste — Adresse</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:-6px">Ce colis sera compté dans vos colis triés</div>
       <input id="addrInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
         placeholder="Ex: 41 Avenue Henri Barbusse 69100 Villeurbanne"
         style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:15px;outline:none"/>
@@ -265,17 +261,66 @@ canvas#qr-canvas{display:none}
   </div>
 </div>
 
+<!-- ══ MODAL NOM CHAUFFEUR ══ -->
+<div id="nameModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center">
+  <div style="background:var(--surf);width:calc(100% - 32px);max-width:400px;border-radius:20px;padding:28px 20px 24px;display:flex;flex-direction:column;gap:16px;border:1px solid var(--border)">
+    <div style="text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">👤</div>
+      <div style="font-size:18px;font-weight:800">Qui êtes-vous ?</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">Votre nom apparaîtra à côté<br/>du compteur de colis triés</div>
+    </div>
+    <input id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+      placeholder="Prénom Nom"
+      style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:17px;outline:none;text-align:center"/>
+    <button id="btnNameOk" class="btn primary" style="padding:15px">✅ Valider</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
+// ════ NOM CHAUFFEUR ════
+const nameModal=document.getElementById('nameModal');
+const nameInput=document.getElementById('nameInput');
+
+function openNameModal(){
+  nameInput.value=localStorage.getItem('driverName')||'';
+  nameModal.style.display='flex';
+  setTimeout(()=>nameInput.focus(),100);
+}
+
+function saveDriverName(){
+  const name=(nameInput.value||'').trim();
+  if(!name) return;
+  localStorage.setItem('driverName',name);
+  document.getElementById('sc-name').textContent=name;
+  nameModal.style.display='none';
+}
+
+document.getElementById('btnNameOk').addEventListener('click',saveDriverName);
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter') saveDriverName();});
+
+// Au chargement : afficher le nom mémorisé ou demander
+(function initDriverName(){
+  const saved=localStorage.getItem('driverName')||'';
+  if(saved){
+    document.getElementById('sc-name').textContent=saved;
+  }else{
+    // Premier lancement : ouvrir le modal après un court délai
+    setTimeout(openNameModal,300);
+  }
+})();
+
 // ════ STATE ════
 let loadedTours=[], scanMap={}, curTourIdx=null;
-let foundCnt=0, unkCnt=0;
+let foundCnt=0;
+// Set de déduplication : codes QR/manuels déjà comptés + adresses hors-liste déjà comptées
+const scannedSet=new Set();
 let leafMap=null;
 let qrStream=null, qrFrame=null, qrScanCnt=0, qrLastCode='', qrLastTime=0;
 
 // ════ UTILS ════
-const normCode=s=>(s||'').replace(/[\u200b\ufeff\xa0]/g,'').trim().replace(/\s+/g,'').toUpperCase();
+const normCode=s=>(s||'').replace(/[​﻿\xa0]/g,'').trim().replace(/\s+/g,'').toUpperCase();
 
 function toast(msg,dur=2500){
   const el=document.getElementById('toast');
@@ -298,7 +343,7 @@ function showMainTab(tab){
 }
 
 // ════ IMPORT JSON ════
-let loadedZones=[]; // zones GeoJSON extraites de _carte
+let loadedZones=[];
 
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('jsonInput').click());
 document.getElementById('jsonInput').addEventListener('change',async e=>{
@@ -307,7 +352,6 @@ document.getElementById('jsonInput').addEventListener('change',async e=>{
     const txt=await f.text();
     let raw; try{raw=JSON.parse(txt);}catch{toast('❌ Fichier JSON invalide');e.target.value='';return;}
 
-    // Extraire les zones de _carte si présentes
     loadedZones=[];
     if(raw._carte&&raw._carte.tours){
       raw._carte.tours.forEach(t=>{
@@ -316,7 +360,6 @@ document.getElementById('jsonInput').addEventListener('change',async e=>{
           if(coords&&coords.length>=3){
             loadedZones.push({
               name:t.name,
-              // GeoJSON = [lon, lat] → on convertit en {lat,lon}
               pts:coords.map(c=>({lat:c[1],lon:c[0]}))
             });
           }
@@ -399,8 +442,9 @@ function renderHome(){
 
 document.getElementById('btnClearAll').addEventListener('click',()=>{
   if(!confirm('Effacer toutes les tournées ?')) return;
-  loadedTours=[];scanMap={};foundCnt=0;unkCnt=0;scanHist=[];
-  rebuildScanMap();renderHome();renderScanHist();toast('Données effacées');
+  loadedTours=[];scanMap={};foundCnt=0;scannedSet.clear();
+  rebuildScanMap();renderHome();toast('Données effacées');
+  updateFoundDisplay();
 });
 
 // ════ TOURS LIST ════
@@ -510,7 +554,6 @@ async function startCam(){
     const video=document.getElementById('qr-video');
     video.srcObject=qrStream;
     await video.play();
-    // caméra toujours visible
     document.getElementById('btnCamOn').style.display='none';
     document.getElementById('btnCamOff').style.display='';
     statusBar.textContent='Pointez vers le QR code du colis…';
@@ -527,72 +570,50 @@ function stopCam(){
   if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
   const video=document.getElementById('qr-video');
   video.srcObject=null;
-  // caméra toujours visible
   document.getElementById('btnCamOn').style.display='';
   document.getElementById('btnCamOff').style.display='none';
 }
 
-// Canvas et ctx fixes — créés une seule fois pour éviter les fuites mémoire
-let qrCanvas = null;
-let qrCtx = null;
-let qrFrameCount = 0;
-let qrActive = false; // verrou anti-reentrance
+let qrCanvas=null, qrCtx=null, qrFrameCount=0, qrActive=false;
 
 function initQRCanvas(){
-  qrCanvas = document.getElementById('qr-canvas');
-  qrCanvas.width = 640;
-  qrCanvas.height = 480;
-  qrCtx = qrCanvas.getContext('2d', {willReadFrequently: true});
+  qrCanvas=document.getElementById('qr-canvas');
+  qrCanvas.width=640; qrCanvas.height=480;
+  qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true});
 }
 
 function scanQRLoop(){
   if(!qrStream) return;
-  qrFrame = requestAnimationFrame(scanQRLoop);
-
-  // 1 frame sur 6 (~10fps) — suffisant pour lire un QR code
+  qrFrame=requestAnimationFrame(scanQRLoop);
   qrFrameCount++;
-  if(qrFrameCount % 6 !== 0) return;
-
-  // Verrou : ne pas lancer si le précédent traitement n'est pas terminé
+  if(qrFrameCount%6!==0) return;
   if(qrActive) return;
-  qrActive = true;
-
-  const video = document.getElementById('qr-video');
-  const statusBar = document.getElementById('qr-status-bar');
-
-  if(!video || video.readyState < 2 || video.videoWidth === 0){
-    qrActive = false; return;
-  }
-
+  qrActive=true;
+  const video=document.getElementById('qr-video');
+  const statusBar=document.getElementById('qr-status-bar');
+  if(!video||video.readyState<2||video.videoWidth===0){qrActive=false;return;}
   try{
-    // Dessiner dans le canvas fixe (pas de réallocation mémoire)
-    qrCtx.drawImage(video, 0, 0, 640, 480);
-    const imageData = qrCtx.getImageData(0, 0, 640, 480);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'dontInvert'});
-
-    if(code && code.data){
-      const now = Date.now();
-      if(code.data !== qrLastCode || now - qrLastTime > 2500){
-        qrLastCode = code.data;
-        qrLastTime = now;
-        const decoded = normCode(code.data);
+    qrCtx.drawImage(video,0,0,640,480);
+    const imageData=qrCtx.getImageData(0,0,640,480);
+    const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});
+    if(code&&code.data){
+      const now=Date.now();
+      if(code.data!==qrLastCode||now-qrLastTime>2500){
+        qrLastCode=code.data;
+        qrLastTime=now;
+        const decoded=normCode(code.data);
         doScan(decoded);
-        statusBar.textContent = '✅ ' + decoded.substring(0,22) + (decoded.length>22?'…':'');
-        setTimeout(()=>{ if(qrStream) statusBar.textContent='Pointez vers le QR code du colis…'; }, 1800);
+        statusBar.textContent='✅ '+decoded.substring(0,22)+(decoded.length>22?'…':'');
+        setTimeout(()=>{if(qrStream) statusBar.textContent='Pointez vers le QR code du colis…';},1800);
       }
-    } else {
+    }else{
       qrScanCnt++;
-      if(qrScanCnt % 60 === 0)
-        statusBar.textContent = '📷 Recherche… (' + Math.round(qrScanCnt/10) + 's)';
+      if(qrScanCnt%60===0)
+        statusBar.textContent='📷 Recherche… ('+Math.round(qrScanCnt/10)+'s)';
     }
-  } catch(e){
-    // Ignorer les erreurs de getImageData (ex: frame corrompue)
-  } finally {
-    qrActive = false;
-  }
+  }catch(e){}finally{qrActive=false;}
 }
 
-// ════ SCAN LOGIQUE ════
 // ════ SONS ════
 let audioCtx=null;
 function getAudioCtx(){
@@ -605,34 +626,107 @@ function beepOk(){
     const ctx=getAudioCtx();
     const osc=ctx.createOscillator();
     const gain=ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
+    osc.connect(gain);gain.connect(ctx.destination);
     osc.type='sine';
     osc.frequency.setValueAtTime(1200,ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(900,ctx.currentTime+0.12);
     gain.gain.setValueAtTime(0.4,ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.18);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.18);
+    osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.18);
   }catch(e){}
 }
 function beepErr(){
   try{
     const ctx=getAudioCtx();
-    [0, 0.2].forEach(delay=>{
+    [0,0.2].forEach(delay=>{
       const osc=ctx.createOscillator();
       const gain=ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
+      osc.connect(gain);gain.connect(ctx.destination);
       osc.type='square';
       osc.frequency.setValueAtTime(300,ctx.currentTime+delay);
       gain.gain.setValueAtTime(0.3,ctx.currentTime+delay);
       gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.12);
-      osc.start(ctx.currentTime+delay); osc.stop(ctx.currentTime+delay+0.12);
+      osc.start(ctx.currentTime+delay);osc.stop(ctx.currentTime+delay+0.12);
     });
   }catch(e){}
 }
-// Initialiser l'AudioContext au premier tap (requis sur mobile)
 document.body.addEventListener('touchstart',()=>getAudioCtx(),{once:true});
 
-// ════ RECHERCHE PAR ADRESSE ════
+// ════ AFFICHAGE COMPTEUR ════
+function updateFoundDisplay(){
+  document.getElementById('sc-found').textContent=foundCnt;
+}
+
+// ════ SCAN LOGIQUE ════
+// Scan QR ou saisie manuelle d'un code barre
+function doScan(code){
+  if(!code) return;
+  const info=scanMap[code];
+  const scanMain=document.getElementById('scanMain');
+  const scanPos=document.getElementById('scanPos');
+  const scanBox=document.getElementById('scanBox');
+
+  if(!info){
+    // Colis inconnu : incrémente TRIÉS si pas déjà vu
+    if(!scannedSet.has(code)){
+      scannedSet.add(code);
+      foundCnt++;
+      updateFoundDisplay();
+    }
+    scanMain.textContent='INCONNU';scanMain.className='scan-main err';
+    scanPos.textContent=code;scanPos.className='scan-pos err';
+    scanBox.className='scan-box-inline err';
+    beepErr();
+  }else{
+    // Colis connu : incrémente TRIÉS si pas déjà vu
+    if(!scannedSet.has(code)){
+      scannedSet.add(code);
+      foundCnt++;
+      updateFoundDisplay();
+    }
+    scanMain.textContent='TOURNÉE '+info.tourName;scanMain.className='scan-main ok';
+    scanPos.textContent='Position '+info.pos+' / '+info.total;scanPos.className='scan-pos ok';
+    scanBox.className='scan-box-inline ok';
+    beepOk();
+  }
+}
+
+document.getElementById('btnScanClear').addEventListener('click',()=>{
+  document.getElementById('scanMain').textContent='EN ATTENTE';
+  document.getElementById('scanMain').className='scan-main';
+  document.getElementById('scanPos').textContent='';
+  document.getElementById('scanPos').className='scan-pos';
+  document.getElementById('scanBox').className='scan-box';
+});
+
+// Arrêter la caméra si on quitte l'écran scan
+document.querySelectorAll('.back-btn').forEach(b=>b.addEventListener('click',stopCam));
+
+// ════ SAISIE MANUELLE ════
+const manualModal=document.getElementById('manualModal');
+const manualInput=document.getElementById('manualInput');
+
+document.getElementById('btnManual').addEventListener('click',()=>{
+  manualModal.style.display='flex';
+  manualInput.value='';
+  setTimeout(()=>manualInput.focus(),100);
+});
+document.getElementById('btnManualCancel').addEventListener('click',()=>{
+  manualModal.style.display='none';
+});
+document.getElementById('btnManualOk').addEventListener('click',()=>{
+  const code=normCode(manualInput.value);
+  if(code){doScan(code);manualModal.style.display='none';}
+});
+manualInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const code=normCode(manualInput.value);
+    if(code){doScan(code);manualModal.style.display='none';}
+  }
+});
+manualModal.addEventListener('click',e=>{if(e.target===manualModal) manualModal.style.display='none';});
+
+// ════ COLIS HORS LISTE — ADRESSE ════
 const addrModal=document.getElementById('addrModal');
 const addrInput=document.getElementById('addrInput');
 const addrResult=document.getElementById('addrResult');
@@ -701,90 +795,40 @@ async function rechercherAdresseMobile(){
       });
     }
 
+    // Clé de dédup pour les adresses hors-liste = label normalisé
+    const addrKey='ADDR:'+label.toUpperCase().replace(/\s+/g,'');
+    const isNew=!scannedSet.has(addrKey);
+
+    if(isNew){
+      scannedSet.add(addrKey);
+      foundCnt++;
+      updateFoundDisplay();
+    }
+
+    const dupBadge=isNew?'':' <span style="font-size:11px;opacity:.6">(déjà compté)</span>';
+
     if(bestName){
       addrResult.style.border='2px solid var(--ok)';
       addrResult.style.background='rgba(46,168,74,.15)';
       addrResult.style.color='var(--ok)';
       addrResult.innerHTML='✅ Tournée<br/><span style="font-size:22px">'+bestName+'</span>'
-        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+label+'</div>';
-    } else {
-      addrResult.style.border='2px solid var(--warn)';
+        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+label+'</div>'
+        +dupBadge;
+    }else{
+      addrResult.style.border='2px solid var(--accent)';
       addrResult.style.background='rgba(240,180,41,.12)';
-      addrResult.style.color='var(--warn)';
-      addrResult.textContent='⚠️ Aucune tournee chargee';
+      addrResult.style.color='var(--accent)';
+      addrResult.innerHTML='📍 Colis hors liste enregistré'
+        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+label+'</div>'
+        +dupBadge;
     }
   }catch(e){
     addrResult.style.border='2px solid var(--err)';
     addrResult.style.background='rgba(229,57,53,.12)';
     addrResult.style.color='var(--err)';
-    addrResult.textContent='❌ Erreur reseau';
+    addrResult.textContent='❌ Erreur réseau';
   }
 }
-
-function doScan(code){
-  if(!code) return;
-  const info=scanMap[code];
-  const scanMain=document.getElementById('scanMain');
-  const scanPos=document.getElementById('scanPos');
-  const scanBox=document.getElementById('scanBox');
-  if(!info){
-    unkCnt++;
-    scanMain.textContent='INCONNU';scanMain.className='scan-main err';
-    scanPos.textContent=code;scanPos.className='scan-pos err';
-    scanBox.className='scan-box-inline err';
-    beepErr();
-  }else{
-    foundCnt++;
-    scanMain.textContent='TOURNÉE '+info.tourName;scanMain.className='scan-main ok';
-    scanPos.textContent='Position '+info.pos+' / '+info.total;scanPos.className='scan-pos ok';
-    scanBox.className='scan-box-inline ok';
-    beepOk();
-  }
-  document.getElementById('sc-found').textContent=foundCnt;
-  document.getElementById('sc-unk').textContent=unkCnt;
-}
-
-
-
-document.getElementById('btnScanClear').addEventListener('click',()=>{
-  document.getElementById('scanMain').textContent='EN ATTENTE';
-  document.getElementById('scanMain').className='scan-main';
-  document.getElementById('scanPos').textContent='';
-  document.getElementById('scanPos').className='scan-pos';
-  document.getElementById('scanBox').className='scan-box';
-});
-
-
-
-// Arrêter la caméra si on quitte l'écran scan
-document.querySelectorAll('.back-btn').forEach(b=>b.addEventListener('click',stopCam));
-
-// ════ SAISIE MANUELLE ════
-const manualModal = document.getElementById('manualModal');
-const manualInput = document.getElementById('manualInput');
-
-document.getElementById('btnManual').addEventListener('click',()=>{
-  manualModal.style.display='flex';
-  manualInput.value='';
-  setTimeout(()=>manualInput.focus(),100);
-});
-document.getElementById('btnManualCancel').addEventListener('click',()=>{
-  manualModal.style.display='none';
-});
-document.getElementById('btnManualOk').addEventListener('click',()=>{
-  const code=normCode(manualInput.value);
-  if(code){ doScan(code); manualModal.style.display='none'; }
-});
-manualInput.addEventListener('keydown',e=>{
-  if(e.key==='Enter'){
-    const code=normCode(manualInput.value);
-    if(code){ doScan(code); manualModal.style.display='none'; }
-  }
-});
-// Fermer en cliquant sur le fond
-manualModal.addEventListener('click',e=>{
-  if(e.target===manualModal) manualModal.style.display='none';
-});
 </script>
 </body>
 </html>
