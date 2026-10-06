@@ -404,7 +404,7 @@ let qrStream=null, qrFrame=null, qrScanCnt=0, qrLastCode='', qrLastTime=0;
 
 // ════ SESSION DE TRI (sauvegardée dans le téléphone) ════
 // scans : { TN : { t, known, tour, adr } }  — known=false pour un TN absent du JSON
-// addrOnly : { clé adresse : { label, tour, t } } — colis saisis par adresse sans TN
+// addrOnly : { id unique : { label, tour, t } } — colis saisis par adresse sans TN (un enregistrement par colis)
 const LS_SESSION='driverSession_v1', LS_TOURS='driverTours_v1';
 function newSession(){return {startedAt:new Date().toISOString(),scans:{},addrOnly:{}};}
 function loadSession(){
@@ -1059,15 +1059,21 @@ async function rechercherAdresseMobile(){
     }
 
     // Cas 2 : colis sans TN saisi par adresse — clé de dédup = label normalisé
-    const addrKey='ADDR:'+label.toUpperCase().replace(/\s+/g,'');
-    const isNew=!session.addrOnly[addrKey];
-
+    // Plusieurs colis peuvent aller à la même adresse : chaque saisie est un colis,
+    // mais on demande confirmation si l'adresse a déjà été saisie (double saisie ?)
+    const same=Object.values(session.addrOnly).filter(a=>a.label===label);
+    let isNew=true;
+    if(same.length){
+      const last=new Date(Math.max(...same.map(a=>a.t))).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      isNew=confirm('Cette adresse a déjà été saisie ('+same.length+' fois, dernière à '+last+').\n\nOK : c\'est un AUTRE colis, le compter.\nAnnuler : c\'est le même colis, ne pas le recompter.');
+    }
     if(isNew){
-      session.addrOnly[addrKey]={label,tour:bestName||'',t:Date.now()};
+      const id='A'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      session.addrOnly[id]={label,tour:bestName||'',t:Date.now()};
       saveSession();
     }
 
-    const dupBadge=isNew?'':' <span style="font-size:11px;opacity:.6">(déjà compté)</span>';
+    const dupBadge=isNew?'':' <span style="font-size:11px;opacity:.6">(non recompté)</span>';
 
     if(bestName){
       addrResult.style.border='2px solid var(--ok)';
@@ -1093,12 +1099,17 @@ async function rechercherAdresseMobile(){
 }
 
 // ════ EXPORT JSON TRIEUR ════
+function fmtHeure(ms){
+  if(!ms) return '';
+  const d=new Date(ms),p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
 function buildTrieurExport(){
   const tns=Object.keys(session.scans);
   const inconnus=tns
     .filter(c=>!session.scans[c].known&&!scanMap[c])
     .map(c=>({tn:c,adresse:session.scans[c].adr||'',tournee:session.scans[c].tour||''}));
-  const adresses=Object.values(session.addrOnly).map(a=>({adresse:a.label,tournee:a.tour||''}));
+  const adresses=Object.entries(session.addrOnly).map(([id,a])=>({id,adresse:a.label,tournee:a.tour||'',t:a.t||0,heure:fmtHeure(a.t)}));
   return {
     type:'trieur', version:1,
     trieur:session.trieur||localStorage.getItem('driverName')||'',
@@ -1107,7 +1118,7 @@ function buildTrieurExport(){
     exportedAt:new Date().toISOString(),
     nbTN:tns.length,
     tns, inconnus, adresses,
-    scans:tns.map(c=>[c,session.scans[c].t])   // horodatage de chaque scan (ms)
+    scans:tns.map(c=>[c,session.scans[c].t,fmtHeure(session.scans[c].t)])   // [TN, horodatage ms, heure lisible]
   };
 }
 
