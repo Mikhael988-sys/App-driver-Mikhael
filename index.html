@@ -12,23 +12,6 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
-<style>
-/* QR CAINIAO */
-.qrc-opts{display:flex;gap:8px;margin-bottom:10px}
-.qrc-opts label{flex:1;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.qrc-opts select{display:block;width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:15px;font-weight:700}
-.qrc-box{background:#fff;border-radius:14px;padding:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
-.qrc-box canvas{width:100%;height:auto;image-rendering:pixelated;display:block}
-.qrc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
-.qrc-title{font-size:20px;font-weight:900;font-family:'Courier New',monospace;color:var(--accent)}
-.qrc-sub{font-size:13px;color:var(--muted);font-weight:700}
-.qrc-warn{background:rgba(229,57,53,.12);border:1px solid var(--err);color:var(--err);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:10px;line-height:1.4}
-.qrc-info{font-size:12px;color:var(--muted);line-height:1.5;margin-top:6px}
-#qrcFull{display:none;position:fixed;inset:0;background:#fff;z-index:4000;align-items:center;justify-content:center;flex-direction:column;padding:12px}
-#qrcFull canvas{width:min(96vw,96vh);height:auto;image-rendering:pixelated}
-#qrcFullLbl{color:#000;font-weight:900;font-size:16px;margin-top:10px;font-family:'Courier New',monospace}
-</style>
 <style>
 :root{
   --bg:#0d1117;--surf:#161b22;--surf2:#1e2736;
@@ -156,15 +139,6 @@ canvas#qr-canvas{display:none}
 <div class="screen active" id="s-home">
   <div class="topbar"><h1>📦 Tournées</h1><div id="home-badge" style="display:none;background:var(--ok);color:#fff;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:800"></div></div>
   <div class="scroll">
-    <div class="slabel">Ma session de tri</div>
-    <div class="card" style="padding:14px;margin-bottom:16px">
-      <div id="sessInfo" style="font-size:14px;line-height:1.6;margin-bottom:12px"></div>
-      <div class="btn-row">
-        <button class="btn primary" id="btnShare">📤 Partager</button>
-        <button class="btn" id="btnDownload">⬇ Télécharger</button>
-      </div>
-      <button class="btn danger" id="btnNewSession" style="margin-top:10px;padding:12px">🔄 Nouvelle session</button>
-    </div>
     <div class="slabel">Charger une tournée</div>
     <div class="import-zone">
       <div style="font-size:32px;margin-bottom:8px">📂</div>
@@ -217,7 +191,6 @@ canvas#qr-canvas{display:none}
     <button class="btn" id="btnScanClear" style="flex:1;padding:12px 8px">Effacer</button>
     <button class="btn" id="btnManual" style="flex:1;padding:12px 8px" title="Saisie manuelle">⌨️</button>
     <button class="btn" id="btnAdresse" style="flex:1;padding:12px 8px" title="Colis hors liste — saisir adresse">📍</button>
-    <button class="btn" id="btnScanShare" style="flex:1;padding:12px 8px" title="Exporter mes colis triés">📤</button>
   </div>
 
   <!-- Modal saisie manuelle -->
@@ -237,8 +210,8 @@ canvas#qr-canvas{display:none}
   <!-- Modal colis hors liste — saisie adresse -->
   <div id="addrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;align-items:flex-end;justify-content:center">
     <div style="background:var(--surf);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:14px">
-      <div id="addrTitle" style="font-size:16px;font-weight:800;text-align:center">📍 Colis hors liste — Adresse</div>
-      <div id="addrSub" style="font-size:12px;color:var(--muted);text-align:center;margin-top:-6px">Ce colis sera compté dans vos colis triés</div>
+      <div style="font-size:16px;font-weight:800;text-align:center">📍 Colis hors liste — Adresse</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:-6px">Ce colis sera compté dans vos colis triés</div>
       <input id="addrInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
         placeholder="Ex: 41 Avenue Henri Barbusse 69100 Villeurbanne"
         style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:15px;outline:none"/>
@@ -279,7 +252,6 @@ canvas#qr-canvas{display:none}
   <div class="itabs">
     <button class="itab active" id="itab-carte" onclick="switchItab('carte')">🗺 CARTE</button>
     <button class="itab" id="itab-liste" onclick="switchItab('liste')">📋 COLIS</button>
-    <button class="itab" id="itab-qr" onclick="switchItab('qr')">🔳 QR</button>
   </div>
   <div id="pane-carte" style="flex:1;display:flex;flex-direction:column;min-height:0">
     <div id="tour-map"></div>
@@ -287,39 +259,7 @@ canvas#qr-canvas{display:none}
   <div id="pane-liste" style="display:none;flex:1;overflow-y:auto;padding:10px;-webkit-overflow-scrolling:touch">
     <div id="colis-list"></div>
   </div>
-  <div id="pane-qr" style="display:none;flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch">
-    <div class="qrc-opts">
-      <label>Colis max / QR
-        <select id="qrcMax">
-          <option value="145" selected>145</option>
-          <option value="100">100</option>
-          <option value="75">75</option>
-          <option value="50">50</option>
-        </select>
-      </label>
-      <label>Séparateur
-        <select id="qrcSep">
-          <option value="lf" selected>Entrée (LF)</option>
-          <option value="crlf">Entrée (CR+LF)</option>
-          <option value="tab">Tabulation</option>
-        </select>
-      </label>
-    </div>
-    <div id="qrcWarn"></div>
-    <div class="qrc-head">
-      <button class="btn" id="qrcPrev" style="width:auto;padding:10px 16px">‹</button>
-      <div style="text-align:center;flex:1">
-        <div class="qrc-title" id="qrcTitle">QR 1 / 1</div>
-        <div class="qrc-sub" id="qrcSub"></div>
-      </div>
-      <button class="btn" id="qrcNext" style="width:auto;padding:10px 16px">›</button>
-    </div>
-    <div class="qrc-box" id="qrcBox"></div>
-    <button class="btn primary" id="qrcFullBtn">⛶ Plein écran</button>
-    <div class="qrc-info" id="qrcInfo"></div>
-  </div>
 </div>
-<div id="qrcFull"><div id="qrcFullBox"></div><div id="qrcFullLbl"></div></div>
 
 <!-- ══ MODAL NOM CHAUFFEUR ══ -->
 <div id="nameModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center">
@@ -327,14 +267,11 @@ canvas#qr-canvas{display:none}
     <div style="text-align:center">
       <div style="font-size:36px;margin-bottom:8px">👤</div>
       <div style="font-size:18px;font-weight:800">Qui êtes-vous ?</div>
-      <div style="font-size:13px;color:var(--muted);margin-top:6px">Votre nom et la date de tri<br/>seront inscrits dans votre export</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">Votre nom apparaîtra à côté<br/>du compteur de colis triés</div>
     </div>
     <input id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
       placeholder="Prénom Nom"
       style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:17px;outline:none;text-align:center"/>
-    <label style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:-10px">📅 Date du tri</label>
-    <input id="dateInput" type="date"
-      style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:17px;outline:none;text-align:center;color-scheme:dark"/>
     <button id="btnNameOk" class="btn primary" style="padding:15px">✅ Valider</button>
   </div>
 </div>
@@ -342,47 +279,20 @@ canvas#qr-canvas{display:none}
 <div id="toast"></div>
 
 <script>
-// ════ NOM DU TRIEUR + DATE DE TRI ════
+// ════ NOM CHAUFFEUR ════
 const nameModal=document.getElementById('nameModal');
 const nameInput=document.getElementById('nameInput');
-const dateInput=document.getElementById('dateInput');
-
-function todayISO(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
-function fmtDateFR(iso){if(!iso) return '';const a=iso.split('-');return a[2]+'/'+a[1]+'/'+a[0];}
 
 function openNameModal(){
   nameInput.value=localStorage.getItem('driverName')||'';
-  dateInput.value=todayISO();
   nameModal.style.display='flex';
-  setTimeout(()=>{ if(!nameInput.value) nameInput.focus(); },100);
+  setTimeout(()=>nameInput.focus(),100);
 }
 
 function saveDriverName(){
   const name=(nameInput.value||'').trim();
-  const date=dateInput.value;
-  if(!name){toast('Indiquez votre nom');return;}
-  if(!date){toast('Indiquez la date du tri');return;}
-  const n=sessionCount();
-  const prevName=session.trieur||localStorage.getItem('driverName')||'';
-  // Changement de date ou de personne alors que des colis sont déjà enregistrés
-  if(n&&((session.workDate&&session.workDate!==date)||(prevName&&prevName.toLowerCase()!==name.toLowerCase()))){
-    const ok=confirm(
-      'Il y a déjà '+n+' colis enregistrés'+
-      (session.workDate?' pour le tri du '+fmtDateFR(session.workDate):'')+(prevName?' au nom de '+prevName:'')+'.\n\n'+
-      'OK : les effacer et démarrer une nouvelle session ('+name+', '+fmtDateFR(date)+').\n'+
-      'Pensez à les exporter AVANT !\n\n'+
-      'Annuler : garder la session en cours.');
-    if(!ok){
-      nameModal.style.display='none';
-      toast('Session du '+fmtDateFR(session.workDate)+' conservée',3500);
-      return;
-    }
-    session=newSession();
-  }
+  if(!name) return;
   localStorage.setItem('driverName',name);
-  session.trieur=name;
-  session.workDate=date;
-  saveSession();
   document.getElementById('sc-name').textContent=name;
   nameModal.style.display='none';
 }
@@ -390,37 +300,24 @@ function saveDriverName(){
 document.getElementById('btnNameOk').addEventListener('click',saveDriverName);
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter') saveDriverName();});
 
-// À chaque ouverture de l'appli : confirmer le nom et la date du tri
+// Au chargement : afficher le nom mémorisé ou demander
 (function initDriverName(){
   const saved=localStorage.getItem('driverName')||'';
-  if(saved) document.getElementById('sc-name').textContent=saved;
-  setTimeout(openNameModal,300);
+  if(saved){
+    document.getElementById('sc-name').textContent=saved;
+  }else{
+    // Premier lancement : ouvrir le modal après un court délai
+    setTimeout(openNameModal,300);
+  }
 })();
 
 // ════ STATE ════
 let loadedTours=[], scanMap={}, curTourIdx=null;
+let foundCnt=0;
+// Set de déduplication : codes QR/manuels déjà comptés + adresses hors-liste déjà comptées
+const scannedSet=new Set();
 let leafMap=null;
 let qrStream=null, qrFrame=null, qrScanCnt=0, qrLastCode='', qrLastTime=0;
-
-// ════ SESSION DE TRI (sauvegardée dans le téléphone) ════
-// scans : { TN : { t, known, tour, adr } }  — known=false pour un TN absent du JSON
-// addrOnly : { id unique : { label, tour, t } } — colis saisis par adresse sans TN (un enregistrement par colis)
-const LS_SESSION='driverSession_v1', LS_TOURS='driverTours_v1';
-function newSession(){return {startedAt:new Date().toISOString(),scans:{},addrOnly:{}};}
-function loadSession(){
-  try{const s=JSON.parse(localStorage.getItem(LS_SESSION)||'null'); if(s&&s.scans&&s.addrOnly) return s;}catch(e){}
-  return newSession();
-}
-let session=loadSession();
-function saveSession(){
-  try{localStorage.setItem(LS_SESSION,JSON.stringify(session));}
-  catch(e){toast('⚠️ Sauvegarde des scans impossible');}
-  renderSession();
-}
-function sessionCount(){return Object.keys(session.scans).length+Object.keys(session.addrOnly).length;}
-function saveTours(){
-  try{localStorage.setItem(LS_TOURS,JSON.stringify({tours:loadedTours,zones:loadedZones}));}catch(e){}
-}
 
 // ════ UTILS ════
 const normCode=s=>(s||'').replace(/[​﻿\xa0]/g,'').trim().replace(/\s+/g,'').toUpperCase();
@@ -435,7 +332,6 @@ function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(id==='s-detail') setTimeout(()=>{if(leafMap) leafMap.invalidateSize();},120);
-  else if(typeof keepAwake==='function') keepAwake(false);
 }
 
 function goHome(){ stopCam(); showScreen('s-home'); }
@@ -477,19 +373,11 @@ document.getElementById('jsonInput').addEventListener('change',async e=>{
       const idx=loadedTours.findIndex(x=>x.name===t.name);
       if(idx>=0) loadedTours[idx]=t; else loadedTours.push(t);
     });
-    rebuildScanMap(); renderHome(); saveTours();
+    rebuildScanMap(); renderHome();
     toast('✅ '+tours.length+' tournée(s) chargée(s) !');
   }catch(err){toast('❌ Erreur : '+(err.message||err));}
   finally{e.target.value='';}
 });
-
-// Restaurer les tournées et zones après un rechargement de la page
-(function restoreTours(){
-  try{
-    const s=JSON.parse(localStorage.getItem(LS_TOURS)||'null');
-    if(s&&Array.isArray(s.tours)){loadedTours=s.tours;loadedZones=s.zones||[];}
-  }catch(e){}
-})();
 
 // Point dans un polygone (ray casting)
 function pointInPoly(lat,lon,pts){
@@ -527,9 +415,14 @@ function seedColor(s){let h=0;for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i
 
 function rebuildScanMap(){
   scanMap={};
+  // Compteur GOFO global = ordre d'apparition de chaque colis toutes tournées confondues
+  let gofo=0;
   loadedTours.forEach(t=>{
     t.colis.forEach((c,i)=>{
-      scanMap[normCode(c.bc)]={tourName:t.name,pos:c.pos||(i+1),total:t.colis.length};
+      gofo++;
+      // gofo = position globale du colis (toutes tournées, dans l'ordre du JSON)
+      // pos  = position dans la tournée (peut avoir été réordonnée via ↑↓)
+      scanMap[normCode(c.bc)]={tourName:t.name,pos:c.pos||(i+1),total:t.colis.length,gofo};
     });
   });
   document.getElementById('sc-total').textContent=Object.keys(scanMap).length;
@@ -553,9 +446,10 @@ function renderHome(){
 }
 
 document.getElementById('btnClearAll').addEventListener('click',()=>{
-  if(!confirm('Effacer les tournées chargées ?\n(Vos colis scannés sont conservés : utilisez « Nouvelle session » pour les effacer.)')) return;
-  loadedTours=[];loadedZones=[];scanMap={};
-  rebuildScanMap();renderHome();saveTours();toast('Tournées effacées');
+  if(!confirm('Effacer toutes les tournées ?')) return;
+  loadedTours=[];scanMap={};foundCnt=0;scannedSet.clear();
+  rebuildScanMap();renderHome();toast('Données effacées');
+  updateFoundDisplay();
 });
 
 // ════ TOURS LIST ════
@@ -581,115 +475,13 @@ function openDetail(idx){
 }
 
 function switchItab(tab){
-  ['carte','liste','qr'].forEach(k=>{
-    document.getElementById('itab-'+k).classList.toggle('active',tab===k);
-    document.getElementById('pane-'+k).style.display=tab===k?(k==='carte'?'flex':'block'):'none';
-  });
+  document.getElementById('itab-carte').classList.toggle('active',tab==='carte');
+  document.getElementById('itab-liste').classList.toggle('active',tab==='liste');
+  document.getElementById('pane-carte').style.display=tab==='carte'?'flex':'none';
+  document.getElementById('pane-liste').style.display=tab==='liste'?'block':'none';
   if(tab==='carte'&&leafMap) setTimeout(()=>leafMap.invalidateSize(),60);
   if(tab==='liste') renderColisList();
-  if(tab==='qr'){ qrcIdx=0; renderQRCainiao(); keepAwake(true); } else keepAwake(false);
 }
-
-// ════ QR CAINIAO (liste des TN d'une tournée en 1 ou 2 QR) ════
-const QRC_MAX_BYTES=2953;            // capacité max d'un QR (version 40, correction L, mode octet)
-const TN_RE=/^(DOFR|CNFR)\d{13}HD$/;
-const QRC_SEPS={lf:'\n',crlf:'\r\n',tab:'\t'};
-let qrcIdx=0, qrcChunks=[], wakeLock=null;
-
-function buildChunks(codes,maxPerQr,sep){
-  // nombre de colis max par QR selon la capacité réelle (taille du plus long TN + séparateur)
-  const longest=codes.reduce((m,c)=>Math.max(m,c.length),0)+sep.length;
-  const capByBytes=Math.floor(QRC_MAX_BYTES/longest);
-  const cap=Math.max(1,Math.min(maxPerQr,capByBytes));
-  const nb=Math.ceil(codes.length/cap);
-  const per=Math.ceil(codes.length/nb);   // répartition équilibrée (ex : 150 → 75 + 75)
-  const out=[];
-  for(let i=0;i<codes.length;i+=per) out.push({from:i+1,codes:codes.slice(i,i+per)});
-  return out;
-}
-
-function drawQR(text,target){
-  const qr=qrcode(0,'L');
-  qr.addData(text,'Byte');
-  qr.make();
-  const n=qr.getModuleCount(), margin=4, cell=4, size=(n+margin*2)*cell;
-  const cv=document.createElement('canvas');
-  cv.width=size; cv.height=size;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size);
-  ctx.fillStyle='#000';
-  for(let r=0;r<n;r++) for(let c=0;c<n;c++)
-    if(qr.isDark(r,c)) ctx.fillRect((c+margin)*cell,(r+margin)*cell,cell,cell);
-  target.innerHTML=''; target.appendChild(cv);
-  return n;
-}
-
-function renderQRCainiao(){
-  if(curTourIdx===null) return;
-  const t=loadedTours[curTourIdx];
-  const box=document.getElementById('qrcBox');
-  const warn=document.getElementById('qrcWarn');
-  if(typeof qrcode==='undefined'){
-    box.innerHTML='<div style="color:#000;padding:20px;text-align:center">Bibliothèque QR non chargée.<br/>Vérifiez la connexion internet.</div>';
-    return;
-  }
-  const sep=QRC_SEPS[document.getElementById('qrcSep').value];
-  const max=Number(document.getElementById('qrcMax').value);
-  // TN dans l'ordre actuel de la tournée, sans doublons
-  const seen=new Set(), codes=[];
-  t.colis.forEach(c=>{const k=normCode(c.bc); if(k&&!seen.has(k)){seen.add(k);codes.push(k);}});
-  if(!codes.length){box.innerHTML='<div style="color:#000;padding:20px">Aucun colis.</div>';return;}
-
-  const bad=codes.filter(c=>!TN_RE.test(c));
-  warn.innerHTML=bad.length
-    ? `<div class="qrc-warn">⚠️ ${bad.length} TN hors format DOFR/CNFR…HD (inclus quand même) :<br/>${bad.slice(0,5).join(', ')}${bad.length>5?'…':''}</div>`
-    : '';
-
-  qrcChunks=buildChunks(codes,max,sep);
-  if(qrcIdx>=qrcChunks.length) qrcIdx=0;
-  const ch=qrcChunks[qrcIdx];
-  const text=ch.codes.join(sep)+sep;   // séparateur final pour valider le dernier colis
-  const modules=drawQR(text,box);
-
-  document.getElementById('qrcTitle').textContent=`QR ${qrcIdx+1} / ${qrcChunks.length}`;
-  document.getElementById('qrcSub').textContent=`Colis ${ch.from} à ${ch.from+ch.codes.length-1} · ${ch.codes.length} TN`;
-  document.getElementById('qrcPrev').style.visibility=qrcIdx>0?'visible':'hidden';
-  document.getElementById('qrcNext').style.visibility=qrcIdx<qrcChunks.length-1?'visible':'hidden';
-  document.getElementById('qrcInfo').innerHTML=
-    `Tournée <b>${t.name}</b> : ${codes.length} TN au total, ${qrcChunks.length} QR.<br/>`+
-    `Ce QR : ${text.length} caractères, ${modules}×${modules} modules.<br/>`+
-    `Après le scan, vérifiez que Cainiao affiche bien <b>${ch.codes.length}</b> colis.`;
-}
-
-document.getElementById('qrcPrev').addEventListener('click',()=>{if(qrcIdx>0){qrcIdx--;renderQRCainiao();}});
-document.getElementById('qrcNext').addEventListener('click',()=>{if(qrcIdx<qrcChunks.length-1){qrcIdx++;renderQRCainiao();}});
-document.getElementById('qrcMax').addEventListener('change',()=>{qrcIdx=0;renderQRCainiao();});
-document.getElementById('qrcSep').addEventListener('change',()=>{qrcIdx=0;renderQRCainiao();});
-
-const qrcFull=document.getElementById('qrcFull');
-document.getElementById('qrcFullBtn').addEventListener('click',()=>{
-  const src=document.querySelector('#qrcBox canvas'); if(!src) return;
-  const box=document.getElementById('qrcFullBox');
-  const cv=document.createElement('canvas'); cv.width=src.width; cv.height=src.height;
-  cv.getContext('2d').drawImage(src,0,0);
-  box.innerHTML=''; box.appendChild(cv);
-  document.getElementById('qrcFullLbl').textContent=document.getElementById('qrcTitle').textContent+' · touchez pour fermer';
-  qrcFull.style.display='flex';
-});
-qrcFull.addEventListener('click',()=>{qrcFull.style.display='none';});
-
-// Empêche l'écran de se mettre en veille pendant l'affichage du QR
-async function keepAwake(on){
-  try{
-    if(on&&'wakeLock' in navigator&&!wakeLock){
-      wakeLock=await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release',()=>{wakeLock=null;});
-    }else if(!on&&wakeLock){ await wakeLock.release(); wakeLock=null; }
-  }catch(e){}
-}
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible'&&document.getElementById('pane-qr').style.display==='block') keepAwake(true);
-});
 
 function buildMap(t){
   const container=document.getElementById('tour-map');
@@ -743,14 +535,14 @@ function moveUp(i){
   const t=loadedTours[curTourIdx];
   [t.colis[i-1],t.colis[i]]=[t.colis[i],t.colis[i-1]];
   t.colis.forEach((c,j)=>c.pos=j+1);
-  rebuildScanMap();renderColisList();buildMap(t);saveTours();
+  rebuildScanMap();renderColisList();buildMap(t);
 }
 function moveDown(i){
   const t=loadedTours[curTourIdx];
   if(i>=t.colis.length-1) return;
   [t.colis[i],t.colis[i+1]]=[t.colis[i+1],t.colis[i]];
   t.colis.forEach((c,j)=>c.pos=j+1);
-  rebuildScanMap();renderColisList();buildMap(t);saveTours();
+  rebuildScanMap();renderColisList();buildMap(t);
 }
 
 // ════ CAMÉRA QR ════
@@ -801,8 +593,6 @@ function scanQRLoop(){
   qrFrameCount++;
   if(qrFrameCount%6!==0) return;
   if(qrActive) return;
-  // pas de scan pendant une saisie (adresse, manuelle, nom)
-  if(['addrModal','manualModal','nameModal'].some(id=>document.getElementById(id).style.display==='flex')) return;
   qrActive=true;
   const video=document.getElementById('qr-video');
   const statusBar=document.getElementById('qr-status-bar');
@@ -869,26 +659,8 @@ document.body.addEventListener('touchstart',()=>getAudioCtx(),{once:true});
 
 // ════ AFFICHAGE COMPTEUR ════
 function updateFoundDisplay(){
-  document.getElementById('sc-found').textContent=sessionCount();
+  document.getElementById('sc-found').textContent=foundCnt;
 }
-
-function renderSession(){
-  const el=document.getElementById('sessInfo'); if(!el) return;
-  const codes=Object.keys(session.scans);
-  const unk=codes.filter(c=>!session.scans[c].known);
-  const unkNoTour=unk.filter(c=>!session.scans[c].tour).length;
-  const start=new Date(session.startedAt);
-  const hh=start.toLocaleDateString('fr-FR')+' '+start.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  el.innerHTML=
-    `👤 <b>${escHtml(session.trieur||localStorage.getItem('driverName')||'(nom non renseigné)')}</b>`+
-    ` · 📅 Tri du <b>${session.workDate?fmtDateFR(session.workDate):'(date non renseignée)'}</b><br/>`+
-    `📦 <b>${codes.length}</b> TN scannés`+
-    (unk.length?` · dont <b style="color:var(--err)">${unk.length}</b> hors liste${unkNoTour?` (${unkNoTour} sans tournée)`:''}`:'')+
-    (Object.keys(session.addrOnly).length?`<br/>📍 ${Object.keys(session.addrOnly).length} colis saisis par adresse`:'')+
-    `<br/><span style="color:var(--muted);font-size:12px">Session commencée le ${hh}</span>`;
-  updateFoundDisplay();
-}
-function escHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ════ SCAN LOGIQUE ════
 // Scan QR ou saisie manuelle d'un code barre
@@ -900,24 +672,25 @@ function doScan(code){
   const scanBox=document.getElementById('scanBox');
 
   if(!info){
-    // Colis absent du JSON : on l'enregistre, puis on demande l'adresse pour trouver sa tournée
-    const prev=session.scans[code];
-    if(!prev){ session.scans[code]={t:Date.now(),known:false,tour:'',adr:''}; saveSession(); }
-    if(prev&&prev.tour){
-      scanMain.textContent='HORS LISTE → '+prev.tour;scanMain.className='scan-main ok';
-      scanPos.textContent=code+' (déjà saisi)';scanPos.className='scan-pos ok';
-      scanBox.className='scan-box-inline ok';
-      beepOk(); return;
+    // Colis inconnu : incrémente TRIÉS si pas déjà vu
+    if(!scannedSet.has(code)){
+      scannedSet.add(code);
+      foundCnt++;
+      updateFoundDisplay();
     }
     scanMain.textContent='INCONNU';scanMain.className='scan-main err';
     scanPos.textContent=code;scanPos.className='scan-pos err';
     scanBox.className='scan-box-inline err';
     beepErr();
-    openAddrModal(code);
   }else{
-    if(!session.scans[code]){ session.scans[code]={t:Date.now(),known:true,tour:info.tourName}; saveSession(); }
+    // Colis connu : incrémente TRIÉS si pas déjà vu
+    if(!scannedSet.has(code)){
+      scannedSet.add(code);
+      foundCnt++;
+      updateFoundDisplay();
+    }
     scanMain.textContent='TOURNÉE '+info.tourName;scanMain.className='scan-main ok';
-    scanPos.textContent='Position '+info.pos+' / '+info.total;scanPos.className='scan-pos ok';
+    scanPos.textContent='Position '+info.pos+' / '+info.total+' · GOFO '+info.gofo;scanPos.className='scan-pos ok';
     scanBox.className='scan-box-inline ok';
     beepOk();
   }
@@ -963,26 +736,16 @@ const addrModal=document.getElementById('addrModal');
 const addrInput=document.getElementById('addrInput');
 const addrResult=document.getElementById('addrResult');
 
-// TN inconnu en attente de son adresse (null = saisie d'un colis sans TN)
-let pendingUnknown=null;
-
-function openAddrModal(code){
-  pendingUnknown=code||null;
-  document.getElementById('addrTitle').textContent=code?'❓ Colis inconnu — adresse ?':'📍 Colis hors liste — Adresse';
-  document.getElementById('addrSub').innerHTML=code
-    ?'<span style="font-family:Courier New,monospace;font-weight:800;color:var(--fg)">'+escHtml(code)+'</span><br/>Tapez l\'adresse de l\'étiquette pour trouver sa tournée'
-    :'Ce colis sera compté dans vos colis triés';
-  document.getElementById('btnAddrCancel').textContent=code?'Passer':'Annuler';
+document.getElementById('btnAdresse').addEventListener('click',()=>{
   addrModal.style.display='flex';
   addrInput.value='';
   addrResult.style.display='none';
   setTimeout(()=>addrInput.focus(),100);
-}
-function closeAddrModal(){addrModal.style.display='none';pendingUnknown=null;}
-
-document.getElementById('btnAdresse').addEventListener('click',()=>openAddrModal(null));
-document.getElementById('btnAddrCancel').addEventListener('click',closeAddrModal);
-addrModal.addEventListener('click',e=>{if(e.target===addrModal) closeAddrModal();});
+});
+document.getElementById('btnAddrCancel').addEventListener('click',()=>{
+  addrModal.style.display='none';
+});
+addrModal.addEventListener('click',e=>{if(e.target===addrModal) addrModal.style.display='none';});
 
 document.getElementById('btnAddrOk').addEventListener('click',rechercherAdresseMobile);
 addrInput.addEventListener('keydown',e=>{if(e.key==='Enter') rechercherAdresseMobile();});
@@ -1037,43 +800,17 @@ async function rechercherAdresseMobile(){
       });
     }
 
-    // Cas 1 : TN inconnu scanné → on rattache l'adresse et la tournée à ce TN
-    if(pendingUnknown&&session.scans[pendingUnknown]){
-      const code=pendingUnknown, s=session.scans[code];
-      s.adr=label; s.tour=bestName||''; s.lat=lat; s.lon=lon;
-      saveSession();
-      addrResult.style.border='2px solid '+(bestName?'var(--ok)':'var(--accent)');
-      addrResult.style.background=bestName?'rgba(46,168,74,.15)':'rgba(240,180,41,.12)';
-      addrResult.style.color=bestName?'var(--ok)':'var(--accent)';
-      addrResult.innerHTML=(bestName?'✅ Tournée<br/><span style="font-size:22px">'+escHtml(bestName)+'</span>':'📍 Aucune tournée trouvée — TN enregistré avec son adresse')
-        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+escHtml(label)+'</div>';
-      if(bestName){
-        const m=document.getElementById('scanMain'),p=document.getElementById('scanPos');
-        m.textContent='HORS LISTE → '+bestName;m.className='scan-main ok';
-        p.textContent=code;p.className='scan-pos ok';
-        document.getElementById('scanBox').className='scan-box-inline ok';
-        beepOk();
-      }
-      setTimeout(()=>{ if(pendingUnknown===code) closeAddrModal(); },1800);
-      return;
-    }
+    // Clé de dédup pour les adresses hors-liste = label normalisé
+    const addrKey='ADDR:'+label.toUpperCase().replace(/\s+/g,'');
+    const isNew=!scannedSet.has(addrKey);
 
-    // Cas 2 : colis sans TN saisi par adresse — clé de dédup = label normalisé
-    // Plusieurs colis peuvent aller à la même adresse : chaque saisie est un colis,
-    // mais on demande confirmation si l'adresse a déjà été saisie (double saisie ?)
-    const same=Object.values(session.addrOnly).filter(a=>a.label===label);
-    let isNew=true;
-    if(same.length){
-      const last=new Date(Math.max(...same.map(a=>a.t))).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-      isNew=confirm('Cette adresse a déjà été saisie ('+same.length+' fois, dernière à '+last+').\n\nOK : c\'est un AUTRE colis, le compter.\nAnnuler : c\'est le même colis, ne pas le recompter.');
-    }
     if(isNew){
-      const id='A'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      session.addrOnly[id]={label,tour:bestName||'',t:Date.now()};
-      saveSession();
+      scannedSet.add(addrKey);
+      foundCnt++;
+      updateFoundDisplay();
     }
 
-    const dupBadge=isNew?'':' <span style="font-size:11px;opacity:.6">(non recompté)</span>';
+    const dupBadge=isNew?'':' <span style="font-size:11px;opacity:.6">(déjà compté)</span>';
 
     if(bestName){
       addrResult.style.border='2px solid var(--ok)';
@@ -1097,80 +834,6 @@ async function rechercherAdresseMobile(){
     addrResult.textContent='❌ Erreur réseau';
   }
 }
-
-// ════ EXPORT JSON TRIEUR ════
-function fmtHeure(ms){
-  if(!ms) return '';
-  const d=new Date(ms),p=n=>String(n).padStart(2,'0');
-  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
-}
-function buildTrieurExport(){
-  const tns=Object.keys(session.scans);
-  const inconnus=tns
-    .filter(c=>!session.scans[c].known&&!scanMap[c])
-    .map(c=>({tn:c,adresse:session.scans[c].adr||'',tournee:session.scans[c].tour||''}));
-  const adresses=Object.entries(session.addrOnly).map(([id,a])=>({id,adresse:a.label,tournee:a.tour||'',t:a.t||0,heure:fmtHeure(a.t)}));
-  return {
-    type:'trieur', version:1,
-    trieur:session.trieur||localStorage.getItem('driverName')||'',
-    dateTri:session.workDate||'',
-    sessionStart:session.startedAt,
-    exportedAt:new Date().toISOString(),
-    nbTN:tns.length,
-    tns, inconnus, adresses,
-    scans:tns.map(c=>[c,session.scans[c].t,fmtHeure(session.scans[c].t)])   // [TN, horodatage ms, heure lisible]
-  };
-}
-
-function trieurFile(){
-  const data=buildTrieurExport();
-  const d=new Date(), p=n=>String(n).padStart(2,'0');
-  const stamp=(data.dateTri||todayISO()).replace(/-/g,'')+'_export'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
-  const who=(data.trieur||'trieur').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w-]+/g,'_');
-  const name='trieur_'+who+'_'+stamp+'.json';
-  return {data,name,file:new File([JSON.stringify(data,null,1)],name,{type:'application/json'})};
-}
-
-function checkBeforeExport(){
-  if(!(session.trieur||localStorage.getItem('driverName'))||!session.workDate){toast('Renseignez votre nom et la date');openNameModal();return false;}
-  if(!sessionCount()){toast('Aucun colis scanné');return false;}
-  return true;
-}
-
-function downloadTrieur(){
-  if(!checkBeforeExport()) return;
-  const {data,name,file}=trieurFile();
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(file); a.download=name; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-  toast('⬇ '+data.nbTN+' TN exportés');
-}
-
-async function shareTrieur(){
-  if(!checkBeforeExport()) return;
-  const {data,name,file}=trieurFile();
-  try{
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:name,text:'Colis triés par '+data.trieur+' : '+data.nbTN+' TN'});
-      return;
-    }
-  }catch(e){ if(e&&e.name==='AbortError') return; }
-  downloadTrieur(); // partage indisponible → téléchargement
-}
-
-document.getElementById('btnShare').addEventListener('click',shareTrieur);
-document.getElementById('btnScanShare').addEventListener('click',shareTrieur);
-document.getElementById('btnDownload').addEventListener('click',downloadTrieur);
-document.getElementById('btnNewSession').addEventListener('click',()=>{
-  const n=sessionCount();
-  if(n&&!confirm('Démarrer une nouvelle session ?\n\nLes '+n+' colis scannés seront effacés.\nPensez à les exporter avant.')) return;
-  session=newSession(); saveSession();
-  toast('🔄 Nouvelle session : confirmez le nom et la date');
-  openNameModal();
-});
-
-// ════ INIT ════
-rebuildScanMap(); renderHome(); renderSession();
 </script>
 </body>
 </html>
