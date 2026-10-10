@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#0d1117"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Driver"/>
+<title>Driver Mobile</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* SYNCHRONISATION */
+.sync{font-size:13px;font-weight:800;padding:8px 12px;border-radius:10px;text-align:center;cursor:pointer;background:var(--surf2);color:var(--muted);border:1px solid var(--border)}
+.sync.ok{color:var(--ok)}
+.sync.wait{color:var(--accent);border-color:var(--accent)}
+.sync.err{color:var(--err);border-color:var(--err);background:rgba(229,57,53,.12)}
+#s-scan>.sync{border-radius:0;border-width:0 0 1px;flex-shrink:0;padding:4px 12px;font-size:12px}
+</style>
+<style>
+/* QR CAINIAO */
+.qrc-opts{display:flex;gap:8px;margin-bottom:10px}
+.qrc-opts label{flex:1;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.qrc-opts select{display:block;width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:15px;font-weight:700}
+.qrc-box{background:#fff;border-radius:14px;padding:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.qrc-box canvas{width:100%;height:auto;image-rendering:pixelated;display:block}
+.qrc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
+.qrc-title{font-size:20px;font-weight:900;font-family:'Courier New',monospace;color:var(--accent)}
+.qrc-sub{font-size:13px;color:var(--muted);font-weight:700}
+.qrc-warn{background:rgba(229,57,53,.12);border:1px solid var(--err);color:var(--err);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:10px;line-height:1.4}
+.qrc-info{font-size:12px;color:var(--muted);line-height:1.5;margin-top:6px}
+#qrcFull{display:none;position:fixed;inset:0;background:#fff;z-index:4000;align-items:center;justify-content:center;flex-direction:column;padding:12px}
+#qrcFull canvas{width:min(96vw,96vh);height:auto;image-rendering:pixelated}
+#qrcFullLbl{color:#000;font-weight:900;font-size:16px;margin-top:10px;font-family:'Courier New',monospace}
+</style>
+<style>
+:root{
+  --bg:#0d1117;--surf:#161b22;--surf2:#1e2736;
+  --border:rgba(255,255,255,0.12);--fg:#e6edf3;--muted:#8b949e;
+  --accent:#f0b429;--ok:#2ea84a;--err:#e53935;
+  --bar-h:52px;--nav-h:64px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;font-size:16px}
+
+.screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.screen.active{display:flex}
+
+/* TOPBAR */
+.topbar{
+  padding:calc(var(--safe-top) + 10px) 14px 10px;
+  background:var(--surf);border-bottom:2px solid var(--accent);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:var(--bar-h);
+}
+.topbar h1{font-size:18px;font-weight:800;flex:1;letter-spacing:.02em}
+.back-btn{font-size:28px;line-height:1;cursor:pointer;color:var(--accent);padding:4px 8px;border-radius:8px}
+
+/* BOTTOM NAV */
+.bottomnav{
+  padding-bottom:var(--safe-bot);
+  display:flex;background:var(--surf);border-top:2px solid var(--border);flex-shrink:0;min-height:var(--nav-h);
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;border:none;background:transparent;color:var(--muted);
+  font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;
+  border-top:3px solid transparent;transition:all .15s;
+}
+.nav-btn.active{color:var(--accent);border-top-color:var(--accent);background:rgba(240,180,41,.06)}
+.nav-btn .ico{font-size:26px;line-height:1}
+
+/* SCROLL */
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.scroll::-webkit-scrollbar{display:none}
+
+/* INNER TABS */
+.itabs{display:flex;background:var(--surf);border-bottom:2px solid var(--border);flex-shrink:0}
+.itab{flex:1;padding:14px 6px;border:none;background:transparent;color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;letter-spacing:.03em}
+.itab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(240,180,41,.05)}
+
+/* CARDS */
+.card{background:var(--surf);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.card-row{display:flex;align-items:center;gap:12px;padding:16px 14px;cursor:pointer}
+.card-row:active{background:var(--surf2)}
+.dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.3)}
+.card-info{flex:1;min-width:0}
+.card-title{font-size:17px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.arrow{font-size:22px;color:var(--muted)}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:16px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:16px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:.02em}
+.btn:active{opacity:.75}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
+.btn.danger{background:rgba(229,57,53,.15);border-color:var(--err);color:var(--err)}
+.btn+.btn{margin-top:10px}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{width:auto;flex:1;padding:12px 8px;font-size:14px}
+
+/* SECTION LABEL */
+.slabel{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 10px}
+
+/* SCAN DISPLAY */
+.scan-box{border-radius:16px;border:3px solid var(--border);background:#060c14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px 16px;min-height:140px;transition:border-color .25s,background .25s;margin-bottom:12px}
+.scan-box-inline{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 16px;background:#060c14;border-bottom:3px solid var(--border);flex-shrink:0;transition:border-color .25s,background .25s;min-height:70px}
+.scan-box-inline.ok{border-color:var(--ok);background:rgba(46,168,74,.08)}
+.scan-box-inline.err{border-color:var(--err);background:rgba(229,57,53,.08)}
+.scan-box.ok{border-color:var(--ok);background:rgba(46,168,74,.07)}
+.scan-box.err{border-color:var(--err);background:rgba(229,57,53,.07)}
+.scan-main{font-size:clamp(28px,8vw,56px);font-weight:900;letter-spacing:3px;text-align:center;line-height:1;color:var(--muted);font-family:'Courier New',monospace}
+.scan-main.ok{color:var(--ok)}
+.scan-main.err{color:var(--err)}
+.scan-pos{font-size:17px;font-weight:700;color:var(--muted);font-family:'Courier New',monospace;text-align:center}
+.scan-pos.ok{color:var(--ok)}
+.scan-pos.err{color:var(--err)}
+/* Badge GOFO (TN commençant par GFFR) */
+.gofo-badge{display:none;background:#ff7a00;color:#0d1117;font-weight:900;font-size:18px;letter-spacing:3px;padding:2px 14px;border-radius:8px;font-family:'Courier New',monospace;margin-bottom:2px}
+.gofo-badge.on{display:inline-block}
+
+/* QR CAMERA */
+#qr-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#qr-frame{width:70%;aspect-ratio:1;border:4px solid var(--accent);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
+#qr-status-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:8px 12px;font-size:13px;font-weight:600;text-align:center;color:var(--fg)}
+canvas#qr-canvas{display:none}
+
+/* COLIS LIST */
+.colis-item{display:flex;align-items:stretch;background:var(--surf);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.colis-num{min-width:48px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;font-family:'Courier New',monospace;color:var(--accent);background:var(--surf2);border-right:1px solid var(--border);flex-shrink:0}
+.colis-body{flex:1;padding:10px 12px;min-width:0}
+.colis-bc{font-size:14px;font-weight:800;font-family:'Courier New',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colis-addr{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+.colis-btns{display:flex;flex-direction:column;gap:4px;padding:8px 6px;flex-shrink:0}
+.mv-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mv-btn:active{background:var(--accent);color:#0d1117;border-color:var(--accent)}
+
+/* MAP */
+#tour-map{flex:1;min-height:0}
+
+/* IMPORT */
+.import-zone{border:2px dashed var(--border);border-radius:14px;padding:24px 16px;text-align:center;color:var(--muted);font-size:14px;margin-bottom:12px}
+
+/* STATS */
+.stats-row{display:flex;gap:8px;margin-bottom:14px}
+.stat{flex:1;background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center}
+.stat .v{font-size:22px;font-weight:900;font-family:'Courier New',monospace}
+.stat .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.stat.ok .v{color:var(--ok)}
+.stat.err .v{color:var(--err)}
+.stat.acc .v{color:var(--accent)}
+
+/* TOAST */
+#toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-bot) + 10px);left:50%;transform:translateX(-50%) translateY(10px);background:#222;color:#fff;padding:12px 22px;border-radius:24px;font-size:15px;font-weight:700;opacity:0;transition:all .3s;pointer-events:none;z-index:9999;white-space:nowrap;border:1px solid var(--border)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.empty{text-align:center;color:var(--muted);padding:36px 16px;font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<!-- ══ ACCUEIL ══ -->
+<div class="screen active" id="s-home">
+  <div class="topbar"><h1>📦 Tournées</h1><div id="home-badge" style="display:none;background:var(--ok);color:#fff;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:800"></div></div>
+  <div class="scroll">
+    <div class="slabel">Ma session de tri</div>
+    <div class="card" style="padding:14px;margin-bottom:16px">
+      <div id="sessInfo" style="font-size:14px;line-height:1.6;margin-bottom:12px"></div>
+      <div class="sync" style="margin-bottom:12px" onclick="syncTap()">…</div>
+      <div class="btn-row">
+        <button class="btn primary" id="btnShare">📤 Partager</button>
+        <button class="btn" id="btnDownload">⬇ Télécharger</button>
+      </div>
+      <button class="btn" id="btnResync" style="margin-top:10px;padding:12px">🔁 Tout renvoyer au serveur</button>
+      <button class="btn danger" id="btnNewSession" style="margin-top:10px;padding:12px">🔄 Nouvelle session</button>
+    </div>
+    <div class="slabel">Charger une tournée</div>
+    <div class="import-zone">
+      <div style="font-size:32px;margin-bottom:8px">📂</div>
+      <div style="margin-bottom:14px">Importez le fichier JSON<br/>envoyé par le gestionnaire</div>
+      <input type="file" id="jsonInput" accept=".json" style="display:none"/>
+      <button class="btn primary" id="btnImport">Choisir un fichier JSON</button>
+    </div>
+    <div id="loaded-section" style="display:none">
+      <div class="slabel" style="margin-top:6px">Mes tournées</div>
+      <div id="loaded-list"></div>
+      <button class="btn danger" id="btnClearAll" style="margin-top:4px">🗑 Effacer tout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCAN COLIS ══ -->
+<div class="screen" id="s-scan" style="flex-direction:column">
+  <!-- Topbar avec compteur TRIÉS -->
+  <div class="topbar">
+    <span class="back-btn" onclick="goHome()">‹</span>
+    <h1>Scanner un colis</h1>
+    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span style="font-size:12px;color:var(--muted);font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="sc-name"></span>
+      <span style="font-size:13px;color:var(--ok);font-weight:800"><span id="sc-found">0</span> triés ✓</span>
+      <span id="sc-edit-name" title="Changer de nom" style="font-size:18px;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:6px" onclick="openNameModal()">✏️</span>
+      <span id="sc-total" style="display:none">0</span>
+    </div>
+  </div>
+
+  <!-- État de l'envoi au serveur -->
+  <div class="sync" onclick="syncTap()">…</div>
+
+  <!-- Résultat scan compact -->
+  <div id="scanBox" class="scan-box-inline">
+    <div class="gofo-badge" id="scanGofo">GOFO</div>
+    <div class="scan-main" id="scanMain">EN ATTENTE</div>
+    <div class="scan-pos" id="scanPos"></div>
+  </div>
+
+  <!-- Caméra plein écran -->
+  <div id="qr-wrap" style="flex:1;position:relative;background:#000;overflow:hidden;display:flex">
+    <video id="qr-video" playsinline autoplay muted style="width:100%;height:100%;object-fit:cover"></video>
+    <div id="qr-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div id="qr-frame"></div>
+    </div>
+    <div id="qr-status-bar">Appuyez sur Caméra pour scanner…</div>
+  </div>
+  <canvas id="qr-canvas" style="display:none"></canvas>
+
+  <!-- Boutons compacts -->
+  <div style="display:flex;gap:8px;padding:10px 12px;background:var(--surf);border-top:1px solid var(--border);flex-shrink:0">
+    <button class="btn primary" id="btnCamOn" style="flex:2;padding:12px 8px">📷 Caméra</button>
+    <button class="btn" id="btnCamOff" style="flex:2;padding:12px 8px;display:none">⏹ Arrêter</button>
+    <button class="btn" id="btnScanClear" style="flex:1;padding:12px 8px">Effacer</button>
+    <button class="btn" id="btnManual" style="flex:1;padding:12px 8px" title="Saisie manuelle">⌨️</button>
+    <button class="btn" id="btnAdresse" style="flex:1;padding:12px 8px" title="Colis hors liste — saisir adresse">📍</button>
+    <button class="btn" id="btnScanShare" style="flex:1;padding:12px 8px" title="Exporter mes colis triés">📤</button>
+  </div>
+
+  <!-- Modal saisie manuelle -->
+  <div id="manualModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;align-items:flex-end;justify-content:center">
+    <div style="background:var(--surf);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:16px;font-weight:800;text-align:center">Saisie manuelle</div>
+      <input id="manualInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        placeholder="Entrez le code du colis…"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:16px;font-family:'Courier New',monospace;outline:none"/>
+      <div style="display:flex;gap:10px">
+        <button id="btnManualCancel" class="btn" style="flex:1;padding:14px">Annuler</button>
+        <button id="btnManualOk" class="btn primary" style="flex:2;padding:14px">✅ Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal colis hors liste — saisie adresse -->
+  <div id="addrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;align-items:flex-end;justify-content:center">
+    <div style="background:var(--surf);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:14px">
+      <div id="addrTitle" style="font-size:16px;font-weight:800;text-align:center">📍 Colis hors liste — Adresse</div>
+      <div id="addrSub" style="font-size:12px;color:var(--muted);text-align:center;margin-top:-6px">Ce colis sera compté dans vos colis triés</div>
+      <input id="addrInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+        placeholder="Ex: 41 Avenue Henri Barbusse 69100 Villeurbanne"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:15px;outline:none"/>
+      <div id="addrResult" style="display:none;padding:14px 16px;border-radius:12px;font-size:15px;font-weight:800;text-align:center;border:2px solid transparent"></div>
+      <div style="display:flex;gap:10px">
+        <button id="btnAddrCancel" class="btn" style="flex:1;padding:14px">Annuler</button>
+        <button id="btnAddrOk" class="btn primary" style="flex:2;padding:14px">🔍 Chercher</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottomnav">
+    <button class="nav-btn active" onclick="showMainTab('scan')"><span class="ico">📦</span>SCANNER</button>
+    <button class="nav-btn" onclick="showMainTab('tours')"><span class="ico">🗂️</span>TOURNÉES</button>
+  </div>
+</div>
+
+
+<!-- ══ LISTE TOURNÉES ══ -->
+<div class="screen" id="s-tours">
+  <div class="topbar">
+    <span class="back-btn" onclick="goHome()">‹</span>
+    <h1>Mes tournées</h1>
+  </div>
+  <div class="scroll"><div id="tours-list"></div></div>
+  <div class="bottomnav">
+    <button class="nav-btn" onclick="showMainTab('scan')"><span class="ico">📦</span>SCANNER</button>
+    <button class="nav-btn active" onclick="showMainTab('tours')"><span class="ico">🗂️</span>TOURNÉES</button>
+  </div>
+</div>
+
+<!-- ══ DÉTAIL TOURNÉE ══ -->
+<div class="screen" id="s-detail">
+  <div class="topbar">
+    <span class="back-btn" onclick="showScreen('s-tours')">‹</span>
+    <h1 id="detail-title">Tournée</h1>
+  </div>
+  <div class="itabs">
+    <button class="itab active" id="itab-carte" onclick="switchItab('carte')">🗺 CARTE</button>
+    <button class="itab" id="itab-liste" onclick="switchItab('liste')">📋 COLIS</button>
+    <button class="itab" id="itab-qr" onclick="switchItab('qr')">🔳 QR</button>
+  </div>
+  <div id="pane-carte" style="flex:1;display:flex;flex-direction:column;min-height:0">
+    <div id="tour-map"></div>
+  </div>
+  <div id="pane-liste" style="display:none;flex:1;overflow-y:auto;padding:10px;-webkit-overflow-scrolling:touch">
+    <div id="colis-list"></div>
+  </div>
+  <div id="pane-qr" style="display:none;flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch">
+    <div class="qrc-opts">
+      <label>Colis max / QR
+        <select id="qrcMax">
+          <option value="145" selected>145</option>
+          <option value="100">100</option>
+          <option value="75">75</option>
+          <option value="50">50</option>
+        </select>
+      </label>
+      <label>Séparateur
+        <select id="qrcSep">
+          <option value="lf" selected>Entrée (LF)</option>
+          <option value="crlf">Entrée (CR+LF)</option>
+          <option value="tab">Tabulation</option>
+        </select>
+      </label>
+    </div>
+    <div id="qrcWarn"></div>
+    <div class="qrc-head">
+      <button class="btn" id="qrcPrev" style="width:auto;padding:10px 16px">‹</button>
+      <div style="text-align:center;flex:1">
+        <div class="qrc-title" id="qrcTitle">QR 1 / 1</div>
+        <div class="qrc-sub" id="qrcSub"></div>
+      </div>
+      <button class="btn" id="qrcNext" style="width:auto;padding:10px 16px">›</button>
+    </div>
+    <div class="qrc-box" id="qrcBox"></div>
+    <button class="btn primary" id="qrcFullBtn">⛶ Plein écran</button>
+    <div class="qrc-info" id="qrcInfo"></div>
+  </div>
+</div>
+<div id="qrcFull"><div id="qrcFullBox"></div><div id="qrcFullLbl"></div></div>
+
+<!-- ══ MODAL NOM CHAUFFEUR ══ -->
+<div id="nameModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center">
+  <div style="background:var(--surf);width:calc(100% - 32px);max-width:400px;max-height:calc(100% - 24px);overflow-y:auto;border-radius:20px;padding:28px 20px 24px;display:flex;flex-direction:column;gap:16px;border:1px solid var(--border)">
+    <div style="text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">👤</div>
+      <div style="font-size:18px;font-weight:800">Qui êtes-vous ?</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">Votre nom et la date de tri<br/>seront inscrits dans votre export</div>
+    </div>
+    <input id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+      placeholder="Prénom Nom"
+      style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:17px;outline:none;text-align:center"/>
+    <label style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:-10px">📅 Date du tri</label>
+    <input id="dateInput" type="date"
+      style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:17px;outline:none;text-align:center;color-scheme:dark"/>
+    <label style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:-10px">🏷 XPT</label>
+    <select id="xptInput"
+      style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--accent);background:var(--surf2);color:var(--fg);font-size:17px;font-weight:700;outline:none;text-align:center;text-align-last:center;color-scheme:dark"></select>
+    <div id="codePreview" style="text-align:center;font-family:'Courier New',monospace;font-weight:800;font-size:14px;color:var(--accent);margin-top:-6px"></div>
+    <div id="codeWarn" style="display:none;text-align:center;font-size:13px;font-weight:700;color:var(--err);margin-top:-8px"></div>
+    <button id="btnNameOk" class="btn primary" style="padding:15px">✅ Valider</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════ CONFIGURATION (à modifier ici) ════
+// Liste des XPT proposés au trieur. Code de session = XPT + date du tri (ex : XPT22-20261010).
+const XPT_LIST=['XPT22','XPT23','XPT35'];
+// Supabase — clé publique (insertion seule)
+const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
+const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';
+
+// ════ NOM DU TRIEUR + XPT + DATE DE TRI ════
+const nameModal=document.getElementById('nameModal');
+const nameInput=document.getElementById('nameInput');
+const dateInput=document.getElementById('dateInput');
+const xptInput=document.getElementById('xptInput');
+
+function todayISO(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function fmtDateFR(iso){if(!iso) return '';const a=iso.split('-');return a[2]+'/'+a[1]+'/'+a[0];}
+
+const normXpt=s=>String(s||'').trim().replace(/\s+/g,'').toUpperCase();
+const mkCode=(xpt,date)=>(xpt&&date)?xpt+'-'+date.replace(/-/g,''):'';
+// Lien …?session=XPT12-20261010 : pré-remplit le XPT et la date du tri
+const linkSess=(()=>{
+  try{
+    const m=normXpt(new URLSearchParams(location.search).get('session')).match(/^(.+)-(\d{4})(\d{2})(\d{2})$/);
+    return m?{xpt:m[1],date:m[2]+'-'+m[3]+'-'+m[4]}:null;
+  }catch(e){return null;}
+})();
+
+function fillXpt(sel){
+  const list=[...new Set(XPT_LIST.map(normXpt).filter(Boolean))];
+  if(sel&&!list.includes(sel)) list.push(sel);
+  if(!sel&&list.length===1) sel=list[0];
+  xptInput.innerHTML=(sel?'':'<option value="">— Choisir —</option>')+list.map(x=>`<option value="${escHtml(x)}">${escHtml(x)}</option>`).join('');
+  xptInput.value=sel||'';
+}
+function updCodePreview(){
+  const code=mkCode(xptInput.value,dateInput.value);
+  document.getElementById('codePreview').textContent=code?'Code de session : '+code:'';
+  const w=document.getElementById('codeWarn');
+  const old=linkSess&&linkSess.date!==todayISO()&&dateInput.value===linkSess.date;
+  w.textContent=old?'⚠️ Lien daté du '+fmtDateFR(linkSess.date)+' : vérifiez la date du tri':'';
+  w.style.display=old?'block':'none';
+}
+xptInput.addEventListener('change',updCodePreview);
+dateInput.addEventListener('change',updCodePreview);
+
+function openNameModal(){
+  nameInput.value=localStorage.getItem('driverName')||'';
+  dateInput.value=linkSess?linkSess.date:todayISO();
+  fillXpt((linkSess&&linkSess.xpt)||normXpt(session.xpt||localStorage.getItem('driverXpt')));
+  updCodePreview();
+  nameModal.style.display='flex';
+  setTimeout(()=>{ if(!nameInput.value) nameInput.focus(); },100);
+}
+
+function saveDriverName(){
+  const name=(nameInput.value||'').trim();
+  const date=dateInput.value;
+  const xpt=xptInput.value;
+  if(!name){toast('Indiquez votre nom');return;}
+  if(!xpt){toast('Choisissez votre XPT');return;}
+  if(!date){toast('Indiquez la date du tri');return;}
+  const code=mkCode(xpt,date);
+  const n=sessionCount();
+  const prevName=session.trieur||localStorage.getItem('driverName')||'';
+  // Changement de date, de XPT ou de personne alors que des colis sont déjà enregistrés
+  if(n&&((session.workDate&&session.workDate!==date)||(session.code&&session.code!==code)||(prevName&&prevName.toLowerCase()!==name.toLowerCase()))){
+    const ok=confirm(
+      'Il y a déjà '+n+' colis enregistrés'+
+      (session.code?' ('+session.code+')':session.workDate?' pour le tri du '+fmtDateFR(session.workDate):'')+(prevName?' au nom de '+prevName:'')+'.\n\n'+
+      'OK : les effacer et démarrer une nouvelle session ('+name+', '+code+').\n'+
+      'Pensez à les exporter AVANT !\n\n'+
+      'Annuler : garder la session en cours.');
+    if(!ok){
+      // session commencée avec l'ancienne version : on lui donne un code pour pouvoir envoyer ses colis
+      if(!session.trieur&&prevName) session.trieur=prevName;
+      if(!session.code&&session.workDate){session.xpt=xpt;session.code=mkCode(xpt,session.workDate);}
+      nameModal.style.display='none';
+      syncSession();
+      toast('Session '+(session.code||fmtDateFR(session.workDate))+' conservée',3500);
+      return;
+    }
+    syncSession();   // met en file d'envoi ce qui ne l'était pas encore, avant d'effacer
+    session=newSession();
+  }
+  localStorage.setItem('driverName',name);
+  localStorage.setItem('driverXpt',xpt);
+  session.trieur=name;
+  session.workDate=date;
+  session.xpt=xpt;
+  session.code=code;
+  saveSession();
+  document.getElementById('sc-name').textContent=name;
+  nameModal.style.display='none';
+  syncSession();   // rattrapage : colis scannés avant la saisie du code
+}
+
+document.getElementById('btnNameOk').addEventListener('click',saveDriverName);
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter') saveDriverName();});
+
+// À chaque ouverture de l'appli : confirmer le nom et la date du tri
+(function initDriverName(){
+  const saved=localStorage.getItem('driverName')||'';
+  if(saved) document.getElementById('sc-name').textContent=saved;
+  setTimeout(openNameModal,300);
+})();
+
+// ════ STATE ════
+let loadedTours=[], scanMap={}, curTourIdx=null;
+let leafMap=null;
+let qrStream=null, qrFrame=null, qrScanCnt=0, qrLastCode='', qrLastTime=0;
+
+// ════ SESSION DE TRI (sauvegardée dans le téléphone) ════
+// scans : { TN : { t, known, tour, adr } }  — known=false pour un TN absent du JSON
+// addrOnly : { id unique : { label, tour, t } } — colis saisis par adresse sans TN (un enregistrement par colis)
+const LS_SESSION='driverSession_v1', LS_TOURS='driverTours_v1';
+function newSession(){return {startedAt:new Date().toISOString(),scans:{},addrOnly:{}};}
+function loadSession(){
+  try{const s=JSON.parse(localStorage.getItem(LS_SESSION)||'null'); if(s&&s.scans&&s.addrOnly) return s;}catch(e){}
+  return newSession();
+}
+let session=loadSession();
+function saveSession(){
+  try{localStorage.setItem(LS_SESSION,JSON.stringify(session));}
+  catch(e){toast('⚠️ Sauvegarde des scans impossible');}
+  renderSession();
+}
+function sessionCount(){return Object.keys(session.scans).length+Object.keys(session.addrOnly).length;}
+function saveTours(){
+  try{localStorage.setItem(LS_TOURS,JSON.stringify({tours:loadedTours,zones:loadedZones}));}catch(e){}
+}
+
+// ════ SYNCHRONISATION SUPABASE ════
+// Chaque colis est mis dans une file d'attente gardée dans le téléphone, puis envoyé en arrière-plan.
+// Une ligne = un identifiant créé une seule fois : la renvoyer ne crée jamais de doublon.
+// Marqueurs dans la session : q = scan mis en file, aq = rattachement d'adresse mis en file.
+const LS_QUEUE='driverQueue_v1', BATCH=100;
+function uid(){
+  try{ if(crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);
+}
+const DEVICE_ID=(()=>{
+  let d=localStorage.getItem('driverDeviceId');
+  if(!d){ d='D'+uid(); try{localStorage.setItem('driverDeviceId',d);}catch(e){} }
+  return d;
+})();
+function qLoad(){try{const q=JSON.parse(localStorage.getItem(LS_QUEUE)||'[]');return Array.isArray(q)?q:[];}catch(e){return [];}}
+function qSave(q){try{localStorage.setItem(LS_QUEUE,JSON.stringify(q));return true;}catch(e){return false;}}
+// Retire des lignes de la file (envoyées), ou les marque refusées si un motif est donné
+function qDone(ids,rejMsg){
+  const set=new Set(ids), q=qLoad();
+  qSave(rejMsg?q.map(x=>set.has(x.r.id)?{r:x.r,rej:rejMsg}:x):q.filter(x=>!set.has(x.r.id)));
+}
+
+const syncReady=()=>!!(session.code&&session.workDate&&session.trieur);
+function mkRow(id,kind,tn,adresse,tournee,t){
+  return {id,session_code:session.code,work_date:session.workDate,trieur:session.trieur,kind,
+    tn:tn||null,adresse:adresse||null,tournee:tournee||null,
+    scanned_at:new Date(t||Date.now()).toISOString(),device_id:DEVICE_ID};
+}
+function enqueue(rows,force){
+  const q=qLoad(), have=new Map(q.map(x=>[x.r.id,x]));
+  rows.forEach(r=>{const x=have.get(r.id); if(x){ if(force) delete x.rej; } else q.push({r});});
+  if(!qSave(q)){toast('⚠️ File d\'envoi pleine : exportez le JSON',4000);return false;}
+  flushSoon();
+  return true;
+}
+// Lignes à envoyer pour un TN scanné : le scan lui-même, puis son rattachement (adresse + tournée) s'il est hors liste
+function scanRows(tn,force){
+  const s=session.scans[tn], out=[];
+  if(!s.id) s.id=uid();
+  if(force||!s.q) out.push([s,'q',mkRow(s.id,s.known?'tn':'hors',tn,'',s.known?s.tour:'',s.t)]);
+  if(!s.known&&(s.adr||s.tour)){
+    if(!s.aid){s.aid=uid(); s.at=s.at||Date.now();}
+    if(force||!s.aq) out.push([s,'aq',mkRow(s.aid,'hors',tn,s.adr,s.tour,s.at)]);
+  }
+  return out;
+}
+function pushRows(list,force){
+  if(!list.length||!syncReady()) return 0;
+  if(!enqueue(list.map(x=>x[2]),force)) return 0;
+  list.forEach(x=>{x[0][x[1]]=1;});
+  return list.length;
+}
+// À appeler juste avant saveSession() quand un colis vient d'être scanné ou rattaché
+function queueScan(tn){ pushRows(scanRows(tn)); }
+function queueAddr(id){ const a=session.addrOnly[id]; pushRows([[a,'q',mkRow(id,'adr','',a.label,a.tour,a.t)]]); }
+// Met en file tout ce qui ne l'a pas encore été (force = toute la session, même déjà envoyée)
+function syncSession(force){
+  if(!syncReady()) return 0;
+  let list=[];
+  Object.keys(session.scans).forEach(tn=>{list=list.concat(scanRows(tn,force));});
+  Object.entries(session.addrOnly).forEach(([id,a])=>{ if(force||!a.q) list.push([a,'q',mkRow(id,'adr','',a.label,a.tour,a.t)]); });
+  const n=pushRows(list,force);
+  if(n) saveSession();
+  return n;
+}
+
+// ── Envoi ──
+let sbClient=null, flushing=false, flushTimer=null, syncErr='';
+function getSb(){
+  if(!sbClient&&window.supabase&&window.supabase.createClient)
+    sbClient=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  return sbClient;
+}
+// Envoi par la fonction insert_scans(rows) : elle ignore les lignes déjà reçues (on conflict do nothing).
+// Résultat : ok · dup (déjà reçu) · retry (réseau) · auth (accès refusé) · bad (ligne refusée)
+async function sendRows(rows){
+  const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),20000);
+  let status=0, code='', msg='';
+  try{
+    const sb=getSb();
+    if(sb){
+      const res=await sb.rpc('insert_scans',{rows}).abortSignal(ctl.signal);
+      if(!res.error) return {s:'ok'};
+      status=res.status||0; code=res.error.code||''; msg=res.error.message||'';
+    }else{
+      // bibliothèque Supabase non chargée : même appel en direct
+      const resp=await fetch(SUPA_URL+'/rest/v1/rpc/insert_scans',{method:'POST',signal:ctl.signal,
+        headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({rows})});
+      if(resp.ok) return {s:'ok'};
+      status=resp.status;
+      try{const j=await resp.json(); code=j.code||''; msg=j.message||'';}catch(e){}
+    }
+  }catch(e){status=0; msg=String((e&&e.message)||e);}
+  finally{clearTimeout(tm);}
+  if(code==='23505') return {s:'dup'};
+  if(status===401||status===403) return {s:'auth',msg:'envoi refusé ('+status+')'};
+  if(!status||status===408||status===429||status>=500) return {s:'retry',msg:'pas de réseau'};
+  return {s:'bad',msg:((code?code+' ':'')+msg)||('erreur '+status)};
+}
+function flushSoon(){clearTimeout(flushTimer);flushTimer=setTimeout(flush,800);}
+async function flush(){
+  if(flushing) return;
+  flushing=true;
+  try{
+    for(;;){
+      const batch=qLoad().filter(x=>!x.rej).slice(0,BATCH);
+      if(!batch.length){syncErr='';break;}
+      let res=await sendRows(batch.map(x=>x.r));
+      if(res.s==='ok'){qDone(batch.map(x=>x.r.id));syncErr='';renderSync();continue;}
+      if(res.s==='dup'||res.s==='bad'){
+        // lot refusé en bloc (ex : une ligne invalide) : on renvoie ligne par ligne pour isoler celle en cause
+        for(const it of batch){
+          res=await sendRows([it.r]);
+          if(res.s==='ok'||res.s==='dup') qDone([it.r.id]);
+          else if(res.s==='bad') qDone([it.r.id],res.msg);
+          else break;
+        }
+        renderSync();
+        if(res.s==='ok'||res.s==='dup'||res.s==='bad'){syncErr='';continue;}
+      }
+      syncErr=res.msg||'pas de réseau';
+      break;
+    }
+  }finally{flushing=false;renderSync();}
+}
+window.addEventListener('online',flush);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') flush();});
+setInterval(()=>{if(qLoad().some(x=>!x.rej)) flush();},20000);
+
+// ── Indicateur ──
+function syncCounts(){
+  const q=qLoad(), rej=q.filter(x=>x.rej).length;
+  let un=0;   // colis de la session pas encore mis en file
+  Object.values(session.scans).forEach(s=>{ if(!s.q) un++; else if(s.aid&&!s.aq) un++; });
+  Object.values(session.addrOnly).forEach(a=>{ if(!a.q) un++; });
+  return {wait:q.length-rej+un,rej};
+}
+function renderSync(){
+  const {wait,rej}=syncCounts();
+  let txt, cls;
+  if(rej){txt='⚠ '+rej+' refusé'+(rej>1?'s':'')+(wait?' · ⏳ '+wait+' en attente':'')+' — touchez pour réessayer';cls='err';}
+  else if(wait){txt='⏳ '+wait+' en attente'+(!syncReady()?' · session à valider':syncErr?' · '+syncErr:'');cls='wait';}
+  else{txt='✓ synchronisé';cls='ok';}
+  document.querySelectorAll('.sync').forEach(el=>{el.textContent=txt;el.className='sync '+cls;});
+}
+// Toucher l'indicateur : nouvel essai immédiat (y compris pour les lignes refusées)
+function syncTap(){
+  const q=qLoad(), r=q.filter(x=>x.rej);
+  if(r.length){ toast('Refus : '+String(r[0].rej).slice(0,45),4000); r.forEach(x=>{delete x.rej;}); qSave(q); }
+  syncSession();
+  flush();
+}
+
+// ════ UTILS ════
+const normCode=s=>(s||'').replace(/[​﻿\xa0]/g,'').trim().replace(/\s+/g,'').toUpperCase();
+
+function toast(msg,dur=2500){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='s-detail') setTimeout(()=>{if(leafMap) leafMap.invalidateSize();},120);
+  else if(typeof keepAwake==='function') keepAwake(false);
+}
+
+function goHome(){ stopCam(); showScreen('s-home'); }
+
+function showMainTab(tab){
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',['scan','tours'][i]===tab));
+  if(tab==='scan'){ showScreen('s-scan'); setTimeout(()=>{ if(!qrStream) startCam(); },400); }
+  else{ showScreen('s-tours'); renderToursList(); }
+}
+
+// ════ IMPORT JSON ════
+let loadedZones=[];
+
+document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('jsonInput').click());
+document.getElementById('jsonInput').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const txt=await f.text();
+    let raw; try{raw=JSON.parse(txt);}catch{toast('❌ Fichier JSON invalide');e.target.value='';return;}
+
+    loadedZones=[];
+    if(raw._carte&&raw._carte.tours){
+      raw._carte.tours.forEach(t=>{
+        if(t.zone&&t.zone.geometry&&t.zone.geometry.coordinates){
+          const coords=t.zone.geometry.coordinates[0];
+          if(coords&&coords.length>=3){
+            loadedZones.push({
+              name:t.name,
+              pts:coords.map(c=>({lat:c[1],lon:c[0]}))
+            });
+          }
+        }
+      });
+    }
+
+    const tours=parseTourPayload(raw);
+    if(!tours.length){toast('⚠️ Aucune tournée trouvée');e.target.value='';return;}
+    tours.forEach(t=>{
+      const idx=loadedTours.findIndex(x=>x.name===t.name);
+      if(idx>=0) loadedTours[idx]=t; else loadedTours.push(t);
+    });
+    rebuildScanMap(); renderHome(); saveTours();
+    toast('✅ '+tours.length+' tournée(s) chargée(s) !');
+  }catch(err){toast('❌ Erreur : '+(err.message||err));}
+  finally{e.target.value='';}
+});
+
+// Restaurer les tournées et zones après un rechargement de la page
+(function restoreTours(){
+  try{
+    const s=JSON.parse(localStorage.getItem(LS_TOURS)||'null');
+    if(s&&Array.isArray(s.tours)){loadedTours=s.tours;loadedZones=s.zones||[];}
+  }catch(e){}
+})();
+
+// Point dans un polygone (ray casting)
+function pointInPoly(lat,lon,pts){
+  let inside=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+    const xi=pts[i].lat,yi=pts[i].lon;
+    const xj=pts[j].lat,yj=pts[j].lon;
+    if(((yi>lon)!==(yj>lon))&&(lat<(xj-xi)*(lon-yi)/(yj-yi)+xi))
+      inside=!inside;
+  }
+  return inside;
+}
+
+function parseTourPayload(raw){
+  if(raw&&raw.colis&&raw.name) return [raw];
+  if(raw&&typeof raw==='object'){
+    const byTour={};
+    for(const[bc,v] of Object.entries(raw)){
+      if(typeof v!=='object') continue;
+      const name=String(v.tournee||''); if(!name) continue;
+      if(!byTour[name]) byTour[name]={name,color:seedColor(name),colis:[]};
+      byTour[name].colis.push({
+        bc, pos:Number(v.position)||0,
+        lat:Number(v.lat)||0, lon:Number(v.lon)||0,
+        adr:v.adresse||v.adr||'', ville:v.ville||'', cp:v.cp||''
+      });
+    }
+    Object.values(byTour).forEach(t=>t.colis.sort((a,b)=>a.pos-b.pos));
+    return Object.values(byTour);
+  }
+  return [];
+}
+
+function seedColor(s){let h=0;for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360;return `hsl(${h},75%,55%)`;}
+
+function rebuildScanMap(){
+  scanMap={};
+  loadedTours.forEach(t=>{
+    t.colis.forEach((c,i)=>{
+      scanMap[normCode(c.bc)]={tourName:t.name,pos:c.pos||(i+1),total:t.colis.length};
+    });
+  });
+  document.getElementById('sc-total').textContent=Object.keys(scanMap).length;
+}
+
+// ════ HOME ════
+function renderHome(){
+  const sec=document.getElementById('loaded-section');
+  const lst=document.getElementById('loaded-list');
+  const badge=document.getElementById('home-badge');
+  if(!loadedTours.length){sec.style.display='none';badge.style.display='none';return;}
+  sec.style.display='block';
+  badge.style.display='inline-flex';
+  badge.textContent=loadedTours.length+' tournée'+(loadedTours.length>1?'s':'');
+  lst.innerHTML=loadedTours.map((t,i)=>`
+    <div class="card"><div class="card-row" onclick="openDetail(${i})">
+      <div class="dot" style="background:${t.color}"></div>
+      <div class="card-info"><div class="card-title">${t.name}</div><div class="card-sub">${t.colis.length} colis</div></div>
+      <div class="arrow">›</div>
+    </div></div>`).join('');
+}
+
+document.getElementById('btnClearAll').addEventListener('click',()=>{
+  if(!confirm('Effacer les tournées chargées ?\n(Vos colis scannés sont conservés : utilisez « Nouvelle session » pour les effacer.)')) return;
+  loadedTours=[];loadedZones=[];scanMap={};
+  rebuildScanMap();renderHome();saveTours();toast('Tournées effacées');
+});
+
+// ════ TOURS LIST ════
+function renderToursList(){
+  const el=document.getElementById('tours-list');
+  if(!loadedTours.length){el.innerHTML='<div class="empty">Aucune tournée chargée.<br/>Retournez à l\'accueil<br/>pour importer un fichier JSON.</div>';return;}
+  el.innerHTML=loadedTours.map((t,i)=>`
+    <div class="card"><div class="card-row" onclick="openDetail(${i})">
+      <div class="dot" style="background:${t.color}"></div>
+      <div class="card-info"><div class="card-title">${t.name}</div><div class="card-sub">${t.colis.length} colis</div></div>
+      <div class="arrow">›</div>
+    </div></div>`).join('');
+}
+
+// ════ DÉTAIL TOURNÉE ════
+function openDetail(idx){
+  curTourIdx=idx;
+  const t=loadedTours[idx];
+  document.getElementById('detail-title').textContent=t.name;
+  showScreen('s-detail');
+  switchItab('carte');
+  buildMap(t);
+}
+
+function switchItab(tab){
+  ['carte','liste','qr'].forEach(k=>{
+    document.getElementById('itab-'+k).classList.toggle('active',tab===k);
+    document.getElementById('pane-'+k).style.display=tab===k?(k==='carte'?'flex':'block'):'none';
+  });
+  if(tab==='carte'&&leafMap) setTimeout(()=>leafMap.invalidateSize(),60);
+  if(tab==='liste') renderColisList();
+  if(tab==='qr'){ qrcIdx=0; renderQRCainiao(); keepAwake(true); } else keepAwake(false);
+}
+
+// ════ QR CAINIAO (liste des TN d'une tournée en 1 ou 2 QR) ════
+const QRC_MAX_BYTES=2953;            // capacité max d'un QR (version 40, correction L, mode octet)
+const TN_RE=/^(?:(?:DOFR|CNFR)\d{13}HD|GFFR\d{14})$/;   // Cainiao : DOFR/CNFR + 13 chiffres + HD · GOFO : GFFR + 14 chiffres
+const QRC_SEPS={lf:'\n',crlf:'\r\n',tab:'\t'};
+let qrcIdx=0, qrcChunks=[], wakeLock=null;
+
+function buildChunks(codes,maxPerQr,sep){
+  // nombre de colis max par QR selon la capacité réelle (taille du plus long TN + séparateur)
+  const longest=codes.reduce((m,c)=>Math.max(m,c.length),0)+sep.length;
+  const capByBytes=Math.floor(QRC_MAX_BYTES/longest);
+  const cap=Math.max(1,Math.min(maxPerQr,capByBytes));
+  const nb=Math.ceil(codes.length/cap);
+  const per=Math.ceil(codes.length/nb);   // répartition équilibrée (ex : 150 → 75 + 75)
+  const out=[];
+  for(let i=0;i<codes.length;i+=per) out.push({from:i+1,codes:codes.slice(i,i+per)});
+  return out;
+}
+
+function drawQR(text,target){
+  const qr=qrcode(0,'L');
+  qr.addData(text,'Byte');
+  qr.make();
+  const n=qr.getModuleCount(), margin=4, cell=4, size=(n+margin*2)*cell;
+  const cv=document.createElement('canvas');
+  cv.width=size; cv.height=size;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='#000';
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++)
+    if(qr.isDark(r,c)) ctx.fillRect((c+margin)*cell,(r+margin)*cell,cell,cell);
+  target.innerHTML=''; target.appendChild(cv);
+  return n;
+}
+
+function renderQRCainiao(){
+  if(curTourIdx===null) return;
+  const t=loadedTours[curTourIdx];
+  const box=document.getElementById('qrcBox');
+  const warn=document.getElementById('qrcWarn');
+  if(typeof qrcode==='undefined'){
+    box.innerHTML='<div style="color:#000;padding:20px;text-align:center">Bibliothèque QR non chargée.<br/>Vérifiez la connexion internet.</div>';
+    return;
+  }
+  const sep=QRC_SEPS[document.getElementById('qrcSep').value];
+  const max=Number(document.getElementById('qrcMax').value);
+  // TN dans l'ordre actuel de la tournée, sans doublons
+  const seen=new Set(), codes=[];
+  t.colis.forEach(c=>{const k=normCode(c.bc); if(k&&!seen.has(k)){seen.add(k);codes.push(k);}});
+  if(!codes.length){box.innerHTML='<div style="color:#000;padding:20px">Aucun colis.</div>';return;}
+
+  const bad=codes.filter(c=>!TN_RE.test(c));
+  warn.innerHTML=bad.length
+    ? `<div class="qrc-warn">⚠️ ${bad.length} TN hors format DOFR/CNFR/GFFR (inclus quand même) :<br/>${bad.slice(0,5).join(', ')}${bad.length>5?'…':''}</div>`
+    : '';
+
+  qrcChunks=buildChunks(codes,max,sep);
+  if(qrcIdx>=qrcChunks.length) qrcIdx=0;
+  const ch=qrcChunks[qrcIdx];
+  const text=ch.codes.join(sep)+sep;   // séparateur final pour valider le dernier colis
+  const modules=drawQR(text,box);
+
+  document.getElementById('qrcTitle').textContent=`QR ${qrcIdx+1} / ${qrcChunks.length}`;
+  document.getElementById('qrcSub').textContent=`Colis ${ch.from} à ${ch.from+ch.codes.length-1} · ${ch.codes.length} TN`;
+  document.getElementById('qrcPrev').style.visibility=qrcIdx>0?'visible':'hidden';
+  document.getElementById('qrcNext').style.visibility=qrcIdx<qrcChunks.length-1?'visible':'hidden';
+  document.getElementById('qrcInfo').innerHTML=
+    `Tournée <b>${t.name}</b> : ${codes.length} TN au total, ${qrcChunks.length} QR.<br/>`+
+    `Ce QR : ${text.length} caractères, ${modules}×${modules} modules.<br/>`+
+    `Après le scan, vérifiez que Cainiao affiche bien <b>${ch.codes.length}</b> colis.`;
+}
+
+document.getElementById('qrcPrev').addEventListener('click',()=>{if(qrcIdx>0){qrcIdx--;renderQRCainiao();}});
+document.getElementById('qrcNext').addEventListener('click',()=>{if(qrcIdx<qrcChunks.length-1){qrcIdx++;renderQRCainiao();}});
+document.getElementById('qrcMax').addEventListener('change',()=>{qrcIdx=0;renderQRCainiao();});
+document.getElementById('qrcSep').addEventListener('change',()=>{qrcIdx=0;renderQRCainiao();});
+
+const qrcFull=document.getElementById('qrcFull');
+document.getElementById('qrcFullBtn').addEventListener('click',()=>{
+  const src=document.querySelector('#qrcBox canvas'); if(!src) return;
+  const box=document.getElementById('qrcFullBox');
+  const cv=document.createElement('canvas'); cv.width=src.width; cv.height=src.height;
+  cv.getContext('2d').drawImage(src,0,0);
+  box.innerHTML=''; box.appendChild(cv);
+  document.getElementById('qrcFullLbl').textContent=document.getElementById('qrcTitle').textContent+' · touchez pour fermer';
+  qrcFull.style.display='flex';
+});
+qrcFull.addEventListener('click',()=>{qrcFull.style.display='none';});
+
+// Empêche l'écran de se mettre en veille pendant l'affichage du QR
+async function keepAwake(on){
+  try{
+    if(on&&'wakeLock' in navigator&&!wakeLock){
+      wakeLock=await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release',()=>{wakeLock=null;});
+    }else if(!on&&wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&document.getElementById('pane-qr').style.display==='block') keepAwake(true);
+});
+
+function buildMap(t){
+  const container=document.getElementById('tour-map');
+  container.style.cssText='flex:1;min-height:0;';
+  if(leafMap){leafMap.remove();leafMap=null;}
+  leafMap=L.map(container,{zoomControl:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap',subdomains:'abc',maxZoom:20
+  }).addTo(leafMap);
+  const pts=t.colis.filter(c=>c.lat&&c.lon);
+  if(!pts.length){container.innerHTML='<div class="empty">Pas de coordonnées GPS<br/>disponibles.</div>';return;}
+  const lls=pts.map(c=>[c.lat,c.lon]);
+  pts.forEach(c=>{
+    L.marker([c.lat,c.lon],{
+      icon:L.divIcon({
+        className:'',
+        html:`<div style="background:${t.color};color:#000;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5)">${c.pos}</div>`,
+        iconSize:[28,28],iconAnchor:[14,14]
+      })
+    }).bindPopup(`<b>${c.pos}. ${c.bc}</b>${c.adr?'<br/>'+c.adr:''}${c.ville?'<br/>'+c.cp+' '+c.ville:''}`)
+    .addTo(leafMap);
+  });
+  if(lls.length>1) L.polyline(lls,{color:t.color,weight:2.5,opacity:.65,dashArray:'7,7'}).addTo(leafMap);
+  leafMap.fitBounds(L.latLngBounds(lls).pad(.12));
+}
+
+// ════ LISTE COLIS ════
+function renderColisList(){
+  if(curTourIdx===null) return;
+  const t=loadedTours[curTourIdx];
+  const el=document.getElementById('colis-list');
+  if(!t.colis.length){el.innerHTML='<div class="empty">Aucun colis.</div>';return;}
+  el.innerHTML=t.colis.map((c,i)=>`
+    <div class="colis-item">
+      <div class="colis-num">${i+1}</div>
+      <div class="colis-body">
+        <div class="colis-bc">${c.bc}</div>
+        ${c.adr?`<div class="colis-addr">📍 ${c.adr}</div>`:''}
+        ${(c.cp||c.ville)?`<div class="colis-addr">🏙 ${[c.cp,c.ville].filter(Boolean).join(' ')}</div>`:''}
+        ${(!c.adr&&!c.cp&&!c.ville)?`<div class="colis-addr">— Adresse non disponible</div>`:''}
+      </div>
+      <div class="colis-btns">
+        <div class="mv-btn" onclick="moveUp(${i})">↑</div>
+        <div class="mv-btn" onclick="moveDown(${i})">↓</div>
+      </div>
+    </div>`).join('');
+}
+
+function moveUp(i){
+  if(i===0) return;
+  const t=loadedTours[curTourIdx];
+  [t.colis[i-1],t.colis[i]]=[t.colis[i],t.colis[i-1]];
+  t.colis.forEach((c,j)=>c.pos=j+1);
+  rebuildScanMap();renderColisList();buildMap(t);saveTours();
+}
+function moveDown(i){
+  const t=loadedTours[curTourIdx];
+  if(i>=t.colis.length-1) return;
+  [t.colis[i],t.colis[i+1]]=[t.colis[i+1],t.colis[i]];
+  t.colis.forEach((c,j)=>c.pos=j+1);
+  rebuildScanMap();renderColisList();buildMap(t);saveTours();
+}
+
+// ════ CAMÉRA QR ════
+document.getElementById('btnCamOn').addEventListener('click', startCam);
+document.getElementById('btnCamOff').addEventListener('click', stopCam);
+
+async function startCam(){
+  const statusBar=document.getElementById('qr-status-bar');
+  statusBar.textContent='Accès caméra…';
+  try{
+    qrStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480}}
+    });
+    const video=document.getElementById('qr-video');
+    video.srcObject=qrStream;
+    await video.play();
+    document.getElementById('btnCamOn').style.display='none';
+    document.getElementById('btnCamOff').style.display='';
+    statusBar.textContent='Pointez vers le QR code du colis…';
+    qrScanCnt=0; qrLastCode=''; qrLastTime=0;
+    initQRCanvas();
+    scanQRLoop();
+  }catch(err){
+    statusBar.textContent='Caméra indisponible : '+(err.message||err);
+  }
+}
+
+function stopCam(){
+  if(qrFrame){cancelAnimationFrame(qrFrame);qrFrame=null;}
+  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
+  const video=document.getElementById('qr-video');
+  video.srcObject=null;
+  document.getElementById('btnCamOn').style.display='';
+  document.getElementById('btnCamOff').style.display='none';
+}
+
+let qrCanvas=null, qrCtx=null, qrFrameCount=0, qrActive=false;
+
+function initQRCanvas(){
+  qrCanvas=document.getElementById('qr-canvas');
+  qrCanvas.width=640; qrCanvas.height=480;
+  qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true});
+}
+
+function scanQRLoop(){
+  if(!qrStream) return;
+  qrFrame=requestAnimationFrame(scanQRLoop);
+  qrFrameCount++;
+  if(qrFrameCount%6!==0) return;
+  if(qrActive) return;
+  // pas de scan pendant une saisie (adresse, manuelle, nom)
+  if(['addrModal','manualModal','nameModal'].some(id=>document.getElementById(id).style.display==='flex')) return;
+  qrActive=true;
+  const video=document.getElementById('qr-video');
+  const statusBar=document.getElementById('qr-status-bar');
+  if(!video||video.readyState<2||video.videoWidth===0){qrActive=false;return;}
+  try{
+    qrCtx.drawImage(video,0,0,640,480);
+    const imageData=qrCtx.getImageData(0,0,640,480);
+    const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});
+    if(code&&code.data){
+      const now=Date.now();
+      if(code.data!==qrLastCode||now-qrLastTime>2500){
+        qrLastCode=code.data;
+        qrLastTime=now;
+        const decoded=normCode(code.data);
+        doScan(decoded);
+        statusBar.textContent='✅ '+decoded.substring(0,22)+(decoded.length>22?'…':'');
+        setTimeout(()=>{if(qrStream) statusBar.textContent='Pointez vers le QR code du colis…';},1800);
+      }
+    }else{
+      qrScanCnt++;
+      if(qrScanCnt%60===0)
+        statusBar.textContent='📷 Recherche… ('+Math.round(qrScanCnt/10)+'s)';
+    }
+  }catch(e){}finally{qrActive=false;}
+}
+
+// ════ SONS ════
+let audioCtx=null;
+function getAudioCtx(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+function beepOk(){
+  try{
+    const ctx=getAudioCtx();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.type='sine';
+    osc.frequency.setValueAtTime(1200,ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(900,ctx.currentTime+0.12);
+    gain.gain.setValueAtTime(0.4,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.18);
+    osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.18);
+  }catch(e){}
+}
+function beepErr(){
+  try{
+    const ctx=getAudioCtx();
+    [0,0.2].forEach(delay=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.type='square';
+      osc.frequency.setValueAtTime(300,ctx.currentTime+delay);
+      gain.gain.setValueAtTime(0.3,ctx.currentTime+delay);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.12);
+      osc.start(ctx.currentTime+delay);osc.stop(ctx.currentTime+delay+0.12);
+    });
+  }catch(e){}
+}
+document.body.addEventListener('touchstart',()=>getAudioCtx(),{once:true});
+
+// ════ AFFICHAGE COMPTEUR ════
+function updateFoundDisplay(){
+  document.getElementById('sc-found').textContent=sessionCount();
+}
+
+function renderSession(){
+  const el=document.getElementById('sessInfo'); if(!el) return;
+  const codes=Object.keys(session.scans);
+  const unk=codes.filter(c=>!session.scans[c].known);
+  const unkNoTour=unk.filter(c=>!session.scans[c].tour).length;
+  const start=new Date(session.startedAt);
+  const hh=start.toLocaleDateString('fr-FR')+' '+start.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  el.innerHTML=
+    `👤 <b>${escHtml(session.trieur||localStorage.getItem('driverName')||'(nom non renseigné)')}</b>`+
+    ` · 📅 Tri du <b>${session.workDate?fmtDateFR(session.workDate):'(date non renseignée)'}</b><br/>`+
+    `🏷 Session <b style="font-family:'Courier New',monospace">${escHtml(session.code||'(code non renseigné)')}</b><br/>`+
+    `📦 <b>${codes.length}</b> TN scannés`+
+    (unk.length?` · dont <b style="color:var(--err)">${unk.length}</b> hors liste${unkNoTour?` (${unkNoTour} sans tournée)`:''}`:'')+
+    (Object.keys(session.addrOnly).length?`<br/>📍 ${Object.keys(session.addrOnly).length} colis saisis par adresse`:'')+
+    `<br/><span style="color:var(--muted);font-size:12px">Session commencée le ${hh}</span>`;
+  updateFoundDisplay();
+  renderSync();
+}
+function escHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// ════ SCAN LOGIQUE ════
+// Scan QR ou saisie manuelle d'un code barre
+// Les TN GOFO commencent par GFFR
+const isGofo=code=>/^GFFR/.test(code);
+
+function doScan(code){
+  if(!code) return;
+  const info=scanMap[code];
+  const scanMain=document.getElementById('scanMain');
+  const scanPos=document.getElementById('scanPos');
+  const scanBox=document.getElementById('scanBox');
+  document.getElementById('scanGofo').classList.toggle('on',isGofo(code));
+
+  if(!info){
+    // Colis absent du JSON : on l'enregistre, puis on demande l'adresse pour trouver sa tournée
+    const prev=session.scans[code];
+    if(!prev){ session.scans[code]={t:Date.now(),known:false,tour:'',adr:''}; queueScan(code); saveSession(); }
+    if(prev&&prev.tour){
+      scanMain.textContent='HORS LISTE → '+prev.tour;scanMain.className='scan-main ok';
+      scanPos.textContent=code+' (déjà saisi)';scanPos.className='scan-pos ok';
+      scanBox.className='scan-box-inline ok';
+      beepOk(); return;
+    }
+    scanMain.textContent='INCONNU';scanMain.className='scan-main err';
+    scanPos.textContent=code;scanPos.className='scan-pos err';
+    scanBox.className='scan-box-inline err';
+    beepErr();
+    openAddrModal(code);
+  }else{
+    if(!session.scans[code]){ session.scans[code]={t:Date.now(),known:true,tour:info.tourName}; queueScan(code); saveSession(); }
+    scanMain.textContent='TOURNÉE '+info.tourName;scanMain.className='scan-main ok';
+    scanPos.textContent='Position '+info.pos+' / '+info.total;scanPos.className='scan-pos ok';
+    scanBox.className='scan-box-inline ok';
+    beepOk();
+  }
+}
+
+document.getElementById('btnScanClear').addEventListener('click',()=>{
+  document.getElementById('scanMain').textContent='EN ATTENTE';
+  document.getElementById('scanMain').className='scan-main';
+  document.getElementById('scanPos').textContent='';
+  document.getElementById('scanPos').className='scan-pos';
+  document.getElementById('scanBox').className='scan-box-inline';
+  document.getElementById('scanGofo').classList.remove('on');
+});
+
+// Arrêter la caméra si on quitte l'écran scan
+document.querySelectorAll('.back-btn').forEach(b=>b.addEventListener('click',stopCam));
+
+// ════ SAISIE MANUELLE ════
+const manualModal=document.getElementById('manualModal');
+const manualInput=document.getElementById('manualInput');
+
+document.getElementById('btnManual').addEventListener('click',()=>{
+  manualModal.style.display='flex';
+  manualInput.value='';
+  setTimeout(()=>manualInput.focus(),100);
+});
+document.getElementById('btnManualCancel').addEventListener('click',()=>{
+  manualModal.style.display='none';
+});
+document.getElementById('btnManualOk').addEventListener('click',()=>{
+  const code=normCode(manualInput.value);
+  if(code){doScan(code);manualModal.style.display='none';}
+});
+manualInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const code=normCode(manualInput.value);
+    if(code){doScan(code);manualModal.style.display='none';}
+  }
+});
+manualModal.addEventListener('click',e=>{if(e.target===manualModal) manualModal.style.display='none';});
+
+// ════ COLIS HORS LISTE — ADRESSE ════
+const addrModal=document.getElementById('addrModal');
+const addrInput=document.getElementById('addrInput');
+const addrResult=document.getElementById('addrResult');
+
+// ── Géocodage limité à la zone des tournées ──
+const MAX_KM=40;   // au-delà, l'adresse trouvée est considérée comme une erreur (homonyme dans une autre ville)
+function zoneCenter(){
+  let n=0,la=0,lo=0;
+  loadedTours.forEach(t=>t.colis.forEach(c=>{if(c.lat&&c.lon){la+=c.lat;lo+=c.lon;n++;}}));
+  return n?{lat:la/n,lon:lo/n}:null;
+}
+function distToTours(lat,lon){
+  // distance (km) au colis chargé le plus proche
+  let best=Infinity;
+  const k=Math.cos(lat*Math.PI/180);
+  loadedTours.forEach(t=>t.colis.forEach(c=>{
+    if(!c.lat||!c.lon) return;
+    const dx=(c.lon-lon)*k*111.32, dy=(c.lat-lat)*110.57, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<best) best=d;
+  }));
+  return best;
+}
+
+// TN inconnu en attente de son adresse (null = saisie d'un colis sans TN)
+let pendingUnknown=null;
+
+function openAddrModal(code){
+  pendingUnknown=code||null;
+  document.getElementById('addrTitle').textContent=code?'❓ Colis inconnu — adresse ?':'📍 Colis hors liste — Adresse';
+  document.getElementById('addrSub').innerHTML=code
+    ?'<span style="font-family:Courier New,monospace;font-weight:800;color:var(--fg)">'+escHtml(code)+'</span><br/>Tapez l\'adresse de l\'étiquette pour trouver sa tournée'
+    :'Ce colis sera compté dans vos colis triés';
+  document.getElementById('btnAddrCancel').textContent=code?'Passer':'Annuler';
+  addrModal.style.display='flex';
+  addrInput.value='';
+  addrResult.style.display='none';
+  setTimeout(()=>addrInput.focus(),100);
+}
+function closeAddrModal(){addrModal.style.display='none';pendingUnknown=null;}
+
+document.getElementById('btnAdresse').addEventListener('click',()=>openAddrModal(null));
+document.getElementById('btnAddrCancel').addEventListener('click',closeAddrModal);
+addrModal.addEventListener('click',e=>{if(e.target===addrModal) closeAddrModal();});
+
+document.getElementById('btnAddrOk').addEventListener('click',rechercherAdresseMobile);
+addrInput.addEventListener('keydown',e=>{if(e.key==='Enter') rechercherAdresseMobile();});
+
+async function rechercherAdresseMobile(){
+  const addr=addrInput.value.trim();
+  if(!addr) return;
+
+  addrResult.style.display='block';
+  addrResult.style.border='2px solid rgba(255,255,255,.2)';
+  addrResult.style.background='rgba(255,255,255,.05)';
+  addrResult.style.color='var(--fg)';
+  addrResult.textContent='⏳ Recherche en cours…';
+
+  try{
+    // Recherche orientée vers la zone des tournées chargées, puis on écarte les résultats trop loin
+    const zone=zoneCenter();
+    let url='https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(addr)+'&limit=5';
+    if(zone) url+='&lat='+zone.lat.toFixed(5)+'&lon='+zone.lon.toFixed(5);
+    const resp=await fetch(url);
+    const data=await resp.json();
+    const feats=(data.features||[]);
+    const feat=zone?feats.find(f=>distToTours(f.geometry.coordinates[1],f.geometry.coordinates[0])<=MAX_KM):feats[0];
+
+    if(!feat){
+      addrResult.style.border='2px solid var(--err)';
+      addrResult.style.background='rgba(229,57,53,.12)';
+      addrResult.style.color='var(--err)';
+      addrResult.innerHTML=feats.length
+        ?'❌ Adresse trouvée trop loin des tournées<div style="font-size:12px;font-weight:400;margin-top:4px">('+escHtml(feats[0].properties.label)+')<br/>Ajoutez le code postal ou la ville.</div>'
+        :'❌ Adresse introuvable';
+      return;
+    }
+
+    const lon=feat.geometry.coordinates[0];
+    const lat=feat.geometry.coordinates[1];
+    const label=feat.properties.label;
+
+    let bestName=null;
+
+    // 1. Chercher dans les zones dessinées (_carte) en priorité
+    if(loadedZones.length){
+      for(const z of loadedZones){
+        if(pointInPoly(lat,lon,z.pts)){bestName=z.name;break;}
+      }
+    }
+
+    // 2. Fallback : tournée dont les colis sont les plus proches
+    if(!bestName){
+      let bestDist=Infinity;
+      loadedTours.forEach(t=>{
+        t.colis.forEach(co=>{
+          if(!co.lat||!co.lon) return;
+          const dl=co.lat-lat,dn=co.lon-lon;
+          const d=dl*dl+dn*dn;
+          if(d<bestDist){bestDist=d;bestName=t.name;}
+        });
+      });
+    }
+
+    // Cas 1 : TN inconnu scanné → on rattache l'adresse et la tournée à ce TN
+    if(pendingUnknown&&session.scans[pendingUnknown]){
+      const code=pendingUnknown, s=session.scans[code];
+      s.adr=label; s.tour=bestName||''; s.lat=lat; s.lon=lon;
+      s.aid=uid(); s.at=Date.now(); s.aq=0;   // nouvelle ligne envoyée : le serveur n'accepte que des ajouts
+      queueScan(code);
+      saveSession();
+      addrResult.style.border='2px solid '+(bestName?'var(--ok)':'var(--accent)');
+      addrResult.style.background=bestName?'rgba(46,168,74,.15)':'rgba(240,180,41,.12)';
+      addrResult.style.color=bestName?'var(--ok)':'var(--accent)';
+      addrResult.innerHTML=(bestName?'✅ Tournée<br/><span style="font-size:22px">'+escHtml(bestName)+'</span>':'📍 Aucune tournée trouvée — TN enregistré avec son adresse')
+        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+escHtml(label)+'</div>';
+      if(bestName){
+        const m=document.getElementById('scanMain'),p=document.getElementById('scanPos');
+        m.textContent='HORS LISTE → '+bestName;m.className='scan-main ok';
+        p.textContent=code;p.className='scan-pos ok';
+        document.getElementById('scanBox').className='scan-box-inline ok';
+        beepOk();
+      }
+      setTimeout(()=>{ if(pendingUnknown===code) closeAddrModal(); },1800);
+      return;
+    }
+
+    // Cas 2 : colis sans TN saisi par adresse — clé de dédup = label normalisé
+    // Plusieurs colis peuvent aller à la même adresse : chaque saisie est un colis,
+    // mais on demande confirmation si l'adresse a déjà été saisie (double saisie ?)
+    const same=Object.values(session.addrOnly).filter(a=>a.label===label);
+    let isNew=true;
+    if(same.length){
+      const last=new Date(Math.max(...same.map(a=>a.t))).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      isNew=confirm('Cette adresse a déjà été saisie ('+same.length+' fois, dernière à '+last+').\n\nOK : c\'est un AUTRE colis, le compter.\nAnnuler : c\'est le même colis, ne pas le recompter.');
+    }
+    if(isNew){
+      const id='A'+uid();
+      session.addrOnly[id]={label,tour:bestName||'',t:Date.now()};
+      queueAddr(id);
+      saveSession();
+    }
+
+    const dupBadge=isNew?'':' <span style="font-size:11px;opacity:.6">(non recompté)</span>';
+
+    if(bestName){
+      addrResult.style.border='2px solid var(--ok)';
+      addrResult.style.background='rgba(46,168,74,.15)';
+      addrResult.style.color='var(--ok)';
+      addrResult.innerHTML='✅ Tournée<br/><span style="font-size:22px">'+bestName+'</span>'
+        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+label+'</div>'
+        +dupBadge;
+    }else{
+      addrResult.style.border='2px solid var(--accent)';
+      addrResult.style.background='rgba(240,180,41,.12)';
+      addrResult.style.color='var(--accent)';
+      addrResult.innerHTML='📍 Colis hors liste enregistré'
+        +'<div style="font-size:11px;font-weight:400;margin-top:4px;opacity:.7">'+label+'</div>'
+        +dupBadge;
+    }
+  }catch(e){
+    addrResult.style.border='2px solid var(--err)';
+    addrResult.style.background='rgba(229,57,53,.12)';
+    addrResult.style.color='var(--err)';
+    addrResult.textContent='❌ Erreur réseau';
+  }
+}
+
+// ════ EXPORT JSON TRIEUR ════
+function fmtHeure(ms){
+  if(!ms) return '';
+  const d=new Date(ms),p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+function buildTrieurExport(){
+  const tns=Object.keys(session.scans);
+  const inconnus=tns
+    .filter(c=>!session.scans[c].known&&!scanMap[c])
+    .map(c=>({tn:c,adresse:session.scans[c].adr||'',tournee:session.scans[c].tour||''}));
+  const adresses=Object.entries(session.addrOnly).map(([id,a])=>({id,adresse:a.label,tournee:a.tour||'',t:a.t||0,heure:fmtHeure(a.t)}));
+  return {
+    type:'trieur', version:1,
+    trieur:session.trieur||localStorage.getItem('driverName')||'',
+    dateTri:session.workDate||'',
+    sessionCode:session.code||'',
+    deviceId:DEVICE_ID,
+    sessionStart:session.startedAt,
+    exportedAt:new Date().toISOString(),
+    nbTN:tns.length,
+    tns, inconnus, adresses,
+    scans:tns.map(c=>[c,session.scans[c].t,fmtHeure(session.scans[c].t)])   // [TN, horodatage ms, heure lisible]
+  };
+}
+
+function trieurFile(){
+  const data=buildTrieurExport();
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  const stamp=(data.dateTri||todayISO()).replace(/-/g,'')+'_export'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+  const who=(data.trieur||'trieur').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w-]+/g,'_');
+  const name='trieur_'+who+'_'+stamp+'.json';
+  return {data,name,file:new File([JSON.stringify(data,null,1)],name,{type:'application/json'})};
+}
+
+function checkBeforeExport(){
+  if(!(session.trieur||localStorage.getItem('driverName'))||!session.workDate){toast('Renseignez votre nom et la date');openNameModal();return false;}
+  if(!sessionCount()){toast('Aucun colis scanné');return false;}
+  return true;
+}
+
+function downloadTrieur(){
+  if(!checkBeforeExport()) return;
+  const {data,name,file}=trieurFile();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(file); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast('⬇ '+data.nbTN+' TN exportés');
+}
+
+async function shareTrieur(){
+  if(!checkBeforeExport()) return;
+  const {data,name,file}=trieurFile();
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:name,text:'Colis triés par '+data.trieur+' : '+data.nbTN+' TN'});
+      return;
+    }
+  }catch(e){ if(e&&e.name==='AbortError') return; }
+  downloadTrieur(); // partage indisponible → téléchargement
+}
+
+document.getElementById('btnShare').addEventListener('click',shareTrieur);
+document.getElementById('btnScanShare').addEventListener('click',shareTrieur);
+document.getElementById('btnDownload').addEventListener('click',downloadTrieur);
+document.getElementById('btnNewSession').addEventListener('click',()=>{
+  const n=sessionCount();
+  syncSession();   // rien ne doit rester hors de la file d'envoi avant d'effacer
+  const w=syncCounts().wait;
+  if(n&&!confirm('Démarrer une nouvelle session ?\n\nLes '+n+' colis scannés seront effacés du téléphone.\nPensez à les exporter avant.'+
+    (w?'\n\n⏳ '+w+' colis ne sont pas encore envoyés au serveur : ils restent en file d\'attente et partiront dès que le réseau revient. Gardez l\'appli ouverte.':''))) return;
+  session=newSession(); saveSession();
+  toast('🔄 Nouvelle session : confirmez le nom et la date');
+  openNameModal();
+});
+document.getElementById('btnResync').addEventListener('click',()=>{
+  if(!syncReady()){toast('Validez d\'abord nom, XPT et date');openNameModal();return;}
+  const n=sessionCount();
+  if(!n){toast('Aucun colis scanné');return;}
+  if(!confirm('Renvoyer au serveur les '+n+' colis de cette session ?\n\nSans risque : un colis déjà reçu n\'est jamais compté deux fois.\nCela peut prendre quelques minutes, gardez l\'appli ouverte.')) return;
+  syncSession(true);
+  toast('🔁 Renvoi en cours…');
+});
+
+// ════ INIT ════
+rebuildScanMap(); renderHome(); renderSession();
+flush();   // envoie ce qui restait en file à la dernière fermeture
+</script>
+</body>
+</html>
