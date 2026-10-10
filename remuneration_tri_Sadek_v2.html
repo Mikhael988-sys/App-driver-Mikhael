@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Rémunération du tri</title>
+<style>
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2330;--border:rgba(255,255,255,.1);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#3fb950;--err:#f85149;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.45}
+header{background:var(--surf);border-bottom:2px solid var(--accent);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:19px;font-weight:800;flex:1;min-width:200px}
+.wrap{max-width:1400px;margin:0 auto;padding:18px 16px 40px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px}
+@media(max-width:950px){.wrap{grid-template-columns:1fr}}
+.panel{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+.panel h3{font-size:15px;font-weight:800;margin-bottom:8px}
+.drop{border:2px dashed var(--border);border-radius:10px;padding:20px 12px;text-align:center;color:var(--muted);cursor:pointer;transition:all .15s}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--fg);background:rgba(240,180,41,.05)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:rgba(255,255,255,.25)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
+.btn.danger{color:var(--err);border-color:var(--err);background:rgba(248,81,73,.1)}
+.btn.sm{padding:4px 8px;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:10px 0 4px}
+input[type=number],input[type=date],input[type=text],input[type=search],input[type=email],input[type=password],select,textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;color-scheme:dark;font-family:inherit}
+textarea{font-family:'Courier New',monospace;resize:vertical;min-height:90px}
+.row2{display:flex;gap:8px}.row2>*{flex:1;min-width:0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-top:10px;cursor:pointer}
+.chk input{margin-top:3px}
+.file{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;background:var(--surf2);position:relative}
+.file b{font-size:13px}.file .x{position:absolute;top:5px;right:8px;cursor:pointer;color:var(--muted)}
+.w{color:var(--accent);margin-top:2px}
+.muted{color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi .v{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.kpi.acc .v{color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 7px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:bottom}
+td{padding:7px;border-bottom:1px solid var(--border);white-space:nowrap}
+td.n,th.n{text-align:right}
+td.wr{white-space:normal}
+tr.sub td{background:rgba(240,180,41,.06);font-weight:800}
+tr.tot td{font-weight:900;border-top:2px solid var(--accent);color:var(--accent)}
+.neg{color:var(--err)}.pos{color:var(--ok)}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(240,180,41,.15);color:var(--accent);margin-left:4px}
+.tag.err{background:rgba(248,81,73,.15);color:var(--err)}
+.tag.ok{background:rgba(63,185,80,.15);color:var(--ok)}
+.tag.mut{background:rgba(255,255,255,.08);color:var(--muted)}
+.tag.sb{background:rgba(57,135,229,.18);color:#6aa9f0}
+/* Supabase */
+.file.off{opacity:.55}
+.panel a{color:var(--accent)}
+.sbcode{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin-top:6px;cursor:pointer}
+.sbcode input{margin-top:3px}
+.sbcode b{font-family:'Courier New',monospace;font-size:13px}
+details.sbd{margin-top:8px;font-size:12px}
+details.sbd summary{cursor:pointer;color:var(--muted);margin-bottom:6px}
+tr.click{cursor:pointer}
+tr.click:hover td{background:rgba(255,255,255,.04)}
+tr.sel td{background:rgba(240,180,41,.08)}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs .btn.on{border-color:var(--accent);color:var(--accent);background:rgba(240,180,41,.08)}
+.maintabs{border-bottom:1px solid var(--border);padding-bottom:12px}
+.maintabs .btn{font-size:14px;padding:10px 14px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.filters>div{min-width:150px;flex:1}
+.filters label{font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:3px}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+/* graphique */
+.chart-wrap{position:relative}
+.chart-wrap svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:4px 0 10px;font-size:13px}
+.legend label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg)}
+.legend .sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend label.off{color:var(--muted)}
+.legend label.off .sw{opacity:.3}
+#tip{position:absolute;pointer-events:none;background:#0d1117;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-size:12px;display:none;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:5}
+#tip .t{font-weight:800;margin-bottom:4px}
+#tip .r{display:flex;align-items:center;gap:6px}
+#tip .r b{margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
+@media print{
+  header .btn,.side,.maintabs,.tabs,.noprint{display:none!important}
+  body{background:#fff;color:#000}
+  .wrap{display:block;padding:0}
+  .panel,.kpi{border-color:#ccc;background:#fff}
+  .kpi .v,tr.tot td{color:#000}
+  td,th{border-color:#ccc;color:#000}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>💶 Rémunération du tri <span class="tag">v2 · Supabase</span></h1>
+  <button class="btn" id="btnSave" title="Enregistrer les erreurs et ajustements dans un fichier">💾 Sauvegarder corrections</button>
+  <button class="btn" id="btnLoad" title="Recharger un fichier de corrections">📂 Restaurer corrections</button>
+  <input type="file" id="corrInput" accept=".json" style="display:none"/>
+  <button class="btn" onclick="window.print()">🖨 Imprimer</button>
+</header>
+
+<div class="wrap">
+  <div class="side">
+    <div class="panel">
+      <h2>Fichiers trieurs</h2>
+      <input type="file" id="fileInput" accept=".json,.xlsx,.xls" multiple style="display:none"/>
+      <div class="drop" id="drop">📂 Glissez ici les JSON trieurs<br/>et les fichiers d'inventaire (.xlsx)<br/><span style="font-size:12px">ou cliquez pour les choisir (plusieurs à la fois)</span></div>
+      <div id="files" style="margin-top:10px"></div>
+      <div id="invFiles"></div>
+      <button class="btn danger" id="btnClear" style="margin-top:6px;display:none">🗑 Retirer tous les fichiers</button>
+    </div>
+
+    <div class="panel" id="sbPanel">
+      <h2>☁ Charger depuis Supabase</h2>
+      <form id="sbLogin">
+        <label class="f" for="sbEmail" style="margin-top:0">E-mail</label>
+        <input type="email" id="sbEmail" autocomplete="username" required/>
+        <label class="f" for="sbPass">Mot de passe</label>
+        <input type="password" id="sbPass" autocomplete="current-password" required/>
+        <button class="btn primary" id="btnSbLogin" type="submit" style="margin-top:10px">🔒 Se connecter</button>
+        <div id="sbLoginErr" class="neg" style="font-size:12px;font-weight:700;margin-top:6px"></div>
+      </form>
+      <div id="sbApp" style="display:none">
+        <div class="muted" style="font-size:12px">Connecté : <span id="sbMail"></span> · <a href="#" id="sbLogout">Déconnexion</a></div>
+        <label class="f">Période (date du tri)</label>
+        <div class="row2">
+          <input type="date" id="sbFrom" title="Du"/>
+          <input type="date" id="sbTo" title="Au"/>
+        </div>
+        <label class="f">XPT</label>
+        <div id="sbXpts" style="display:flex;gap:14px;flex-wrap:wrap"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn primary" id="btnSbLoad">☁ Charger</button>
+          <button class="btn danger" id="btnSbClear" style="display:none">🗑 Vider</button>
+        </div>
+      </div>
+      <div id="sbStatus" style="font-size:12px;margin-top:8px"></div>
+      <label class="f" for="sbRole">Rôle de Supabase dans la paie</label>
+      <select id="sbRole">
+        <option value="ctrl">Contrôle seulement (paie sur les JSON)</option>
+        <option value="fill">Compléter les JSON manquants</option>
+        <option value="merge">Fusionner JSON + Supabase</option>
+      </select>
+      <div id="sbCodes"></div>
+      <div id="sbSummary"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Paramètres de paiement</h2>
+      <label class="f" for="price">Prix par colis trié (€)</label>
+      <input type="number" id="price" min="0" step="0.001" value="0.05"/>
+      <label class="f">Période</label>
+      <div class="row2">
+        <input type="date" id="dFrom" title="Du"/>
+        <input type="date" id="dTo" title="Au"/>
+      </div>
+      <label class="f" for="dupMode">Colis scanné par plusieurs trieurs le même jour</label>
+      <select id="dupMode">
+        <option value="first">Payé seulement au premier qui l'a scanné</option>
+        <option value="each">Payé à chaque trieur</option>
+      </select>
+      <label class="chk"><input type="checkbox" id="inclUnknown" checked/> <span>Payer les TN hors liste (absents de la parcel list)</span></label>
+      <label class="chk"><input type="checkbox" id="inclAddr" checked/> <span>Payer les colis saisis par adresse (sans TN)</span></label>
+      <h2 style="margin-top:16px">Erreurs de tri</h2>
+      <label class="chk"><input type="checkbox" id="errUnpaid" checked/> <span>Ne pas payer un colis en erreur</span></label>
+      <label class="f" for="penalty">Pénalité en plus par erreur (€)</label>
+      <input type="number" id="penalty" min="0" step="0.01" value="0"/>
+      <h2 style="margin-top:16px">Inventaire</h2>
+      <div id="invOpts"><div class="muted" style="font-size:12px">Chargez un fichier d'inventaire pour choisir quels statuts ne sont pas payés.</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kTrieurs">0</div><div class="l">Trieurs</div></div>
+      <div class="kpi"><div class="v" id="kTries">0</div><div class="l">Colis triés</div></div>
+      <div class="kpi"><div class="v" id="kErr">0</div><div class="l">Erreurs de tri</div></div>
+      <div class="kpi"><div class="v" id="kPaid">0</div><div class="l">Colis payés</div></div>
+      <div class="kpi acc"><div class="v" id="kMontant">0 €</div><div class="l">Montant total</div></div>
+    </div>
+
+    <div class="tabs maintabs" id="mainTabs">
+      <button class="btn on" data-t="paie">💶 Paie</button>
+      <button class="btn" data-t="scans">📋 Scans par trieur</button>
+      <button class="btn" data-t="graph">📈 Graphique</button>
+      <button class="btn" data-t="corr">⚠️ Erreurs &amp; ajustements</button>
+      <button class="btn" data-t="ctrl">🔍 Contrôle Supabase <span id="cCtrl"></span></button>
+    </div>
+
+    <!-- ══ PAIE ══ -->
+    <section id="t-paie">
+      <div class="tabs" id="paieTabs">
+        <button class="btn on" data-v="trieur">👤 Par trieur</button>
+        <button class="btn" data-v="detail">📋 Par trieur et par date</button>
+        <button class="btn" data-v="date">📅 Par date</button>
+        <span style="flex:1"></span>
+        <button class="btn" id="btnCsvPaie">⬇ CSV de cette vue</button>
+      </div>
+      <div class="panel"><div class="tbl" id="tPaie"></div></div>
+      <div class="note noprint">
+        <b>Colis triés</b> = TN scannés (de la liste ou hors liste) + colis saisis par adresse. <b>Colis payés</b> = colis triés − doublons non payés − colis en erreur − colis d'inventaire + ajustements.
+        Un trieur qui exporte plusieurs fois le même jour : ses fichiers sont fusionnés, chaque colis compté une fois.
+        <b>Cadence</b> = colis triés ÷ temps entre le premier et le dernier scan (pauses comprises).
+      </div>
+    </section>
+
+    <!-- ══ SCANS ══ -->
+    <section id="t-scans" style="display:none">
+      <div class="panel">
+        <div class="filters">
+          <div><label>Trieur</label><select id="fTrieur"></select></div>
+          <div><label>Date</label><select id="fDate"></select></div>
+          <div><label>Statut</label><select id="fStatut">
+            <option value="">Tous</option><option value="paye">Payés</option><option value="dup">Doublons non payés</option>
+            <option value="err">Erreurs de tri</option><option value="hors">Hors liste</option><option value="adr">Saisis par adresse</option><option value="inv">Inventaire</option><option value="unpaid">Non payés (option)</option>
+          </select></div>
+          <div><label>Rechercher un TN ou une adresse</label><input type="search" id="fSearch" placeholder="DOFR…"/></div>
+          <div style="flex:0;min-width:auto"><button class="btn" id="btnCsvScans">⬇ CSV</button></div>
+        </div>
+        <div class="muted" id="scansCount" style="font-size:12px;margin-bottom:6px"></div>
+        <div class="tbl" id="tScans"></div>
+      </div>
+    </section>
+
+    <!-- ══ GRAPHIQUE ══ -->
+    <section id="t-graph" style="display:none">
+      <div class="panel">
+        <div class="filters">
+          <div><label>Date</label><select id="gDate"></select></div>
+          <div><label>Affichage</label><select id="gMode">
+            <option value="cumul">Cumul des colis scannés</option>
+            <option value="q15">Colis scannés par quart d'heure</option>
+          </select></div>
+        </div>
+        <h3 id="gTitle"></h3>
+        <div class="legend" id="gLegend"></div>
+        <div class="chart-wrap" id="gWrap"><div id="tip"></div></div>
+        <div class="note">Survolez le graphique pour lire les valeurs. Cliquez sur un trieur dans la légende pour l'afficher ou le masquer. Tous les colis scannés sont comptés, payés ou non.</div>
+      </div>
+    </section>
+
+    <!-- ══ ERREURS & AJUSTEMENTS ══ -->
+    <section id="t-corr" style="display:none">
+      <div class="grid2">
+        <div class="panel">
+          <h3>⚠️ Erreurs de tri</h3>
+          <div class="muted" style="font-size:12px;margin-bottom:8px">Collez les TN mal triés (un par ligne, ou séparés par des espaces). L'outil retrouve le trieur qui les a scannés ce jour-là.</div>
+          <div class="row2">
+            <div><label class="f" style="margin-top:0">Date du tri</label><input type="date" id="eDate"/></div>
+            <div><label class="f" style="margin-top:0">Commentaire (facultatif)</label><input type="text" id="eNote" placeholder="ex : mauvaise tournée"/></div>
+          </div>
+          <label class="f">TN en erreur</label>
+          <textarea id="eTns" placeholder="DOFR9010232118592HD&#10;CNFR…"></textarea>
+          <button class="btn primary" id="btnAddErr" style="margin-top:8px">➕ Ajouter les erreurs</button>
+          <div class="tbl" id="tErr" style="margin-top:12px"></div>
+        </div>
+        <div class="panel">
+          <h3>✏️ Ajustements manuels</h3>
+          <div class="muted" style="font-size:12px;margin-bottom:8px">Pour du tri fait hors application (ajout) ou une sanction (retrait). Le nombre de colis payés du trieur est corrigé.</div>
+          <div class="row2">
+            <div><label class="f" style="margin-top:0">Trieur</label><input type="text" id="aTrieur" list="trieursList" placeholder="Nom"/></div>
+            <div><label class="f" style="margin-top:0">Date du tri</label><input type="date" id="aDate"/></div>
+          </div>
+          <div class="row2">
+            <div><label class="f">Type</label><select id="aSign"><option value="1">➕ Ajout de colis</option><option value="-1">➖ Retrait de colis</option></select></div>
+            <div><label class="f">Nombre de colis</label><input type="number" id="aNb" min="1" step="1" value="1"/></div>
+          </div>
+          <label class="f">Motif</label>
+          <input type="text" id="aMotif" placeholder="ex : tri manuel du camion de 7h"/>
+          <button class="btn primary" id="btnAddAdj" style="margin-top:8px">➕ Ajouter l'ajustement</button>
+          <datalist id="trieursList"></datalist>
+          <div class="tbl" id="tAdj" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div class="note">Les erreurs et ajustements sont gardés dans ce navigateur. Utilisez « 💾 Sauvegarder corrections » pour en garder une copie ou les transférer sur un autre PC.</div>
+    </section>
+
+    <!-- ══ CONTRÔLE JSON / SUPABASE ══ -->
+    <section id="t-ctrl" style="display:none">
+      <div class="panel">
+        <div class="filters">
+          <div><label>Afficher</label><select id="cFilter">
+            <option value="">Tous les trieurs et jours</option>
+            <option value="diff">Seulement les écarts</option>
+          </select></div>
+          <div style="flex:0;min-width:auto"><button class="btn" id="btnCsvCtrl">⬇ CSV du tableau</button></div>
+          <div style="flex:0;min-width:auto"><button class="btn" id="btnCsvCtrlTn">⬇ CSV des colis en écart</button></div>
+        </div>
+        <div class="muted" id="ctrlCount" style="font-size:12px;margin-bottom:6px"></div>
+        <div class="tbl" id="tCtrl"></div>
+      </div>
+      <div id="ctrlDetail"></div>
+      <div class="note">Comparaison, pour un même trieur et un même jour, entre ses fichiers JSON et les scans reçus par Supabase (codes de session cochés uniquement), sur la période chargée depuis Supabase. Cliquez sur une ligne pour voir les colis présents d'un seul côté. Un JSON exporté avant la fin du tri contient normalement moins de colis que Supabase. Ce contrôle ne dépend pas du « rôle de Supabase dans la paie ».</div>
+    </section>
+  </div>
+</div>
+
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+// ══════════════ UTILITAIRES ══════════════
+const $=id=>document.getElementById(id);
+const eur=v=>v.toLocaleString('fr-FR',{style:'currency',currency:'EUR'});
+const num=v=>v.toLocaleString('fr-FR');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const normCode=s=>String(s||'').replace(/[​﻿\xa0\r\n\t]/g,'').trim().replace(/\s+/g,'').toUpperCase();
+const normName=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().replace(/\s+/g,' ').toLowerCase();
+const fmtD=iso=>{if(!iso) return '?';const a=iso.split('-');return a[2]+'/'+a[1]+'/'+a[0];};
+const fmtDs=iso=>{if(!iso) return '?';const a=iso.split('-');return a[2]+'/'+a[1];};
+const pad=n=>String(n).padStart(2,'0');
+const fmtH=ms=>{if(!ms) return '—';const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes());};
+const fmtHs=ms=>{if(!ms) return '—';const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());};
+const fmtDur=ms=>{if(!ms||ms<0) return '—';const m=Math.round(ms/60000);return Math.floor(m/60)+'h'+pad(m%60);};
+function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const SERIES=['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'].map(v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+
+// ══════════════ ÉTAT ══════════════
+// files : {key,name,trieur,tKey,date,dateFromExport,exportedAt,nbTN,tns:Map(TN→ms),unknown:Set,addr:Map(id→{label,t})}
+let files=[];
+let corr={errors:[],adjust:[]};
+let invs=[];   // inventaires : {key,name,date,xpt,cats:Map(statut→Set(TN)),ignored}
+let invOff=new Set();   // statuts d'inventaire à PAYER quand même (décochés)   // errors:{id,date,tn,note}  adjust:{id,trieur,tKey,date,delta,motif}
+let mainTab='paie', paieView='trieur', hidden=new Set();
+
+const P_KEY='remuTri_params', C_KEY='remuTri_corrections';
+try{
+  const s=JSON.parse(localStorage.getItem(P_KEY)||'{}');
+  ['price','penalty','dupMode'].forEach(k=>{if(s[k]!=null) $(k).value=s[k];});
+  ['inclUnknown','inclAddr','errUnpaid'].forEach(k=>{if(s[k]!=null) $(k).checked=s[k];});
+  if(Array.isArray(s.invOff)) invOff=new Set(s.invOff);
+}catch(e){}
+try{const c=JSON.parse(localStorage.getItem(C_KEY)||'null'); if(c&&Array.isArray(c.errors)&&Array.isArray(c.adjust)) corr=c;}catch(e){}
+function saveParams(){
+  try{localStorage.setItem(P_KEY,JSON.stringify({price:$('price').value,penalty:$('penalty').value,dupMode:$('dupMode').value,
+    inclUnknown:$('inclUnknown').checked,inclAddr:$('inclAddr').checked,errUnpaid:$('errUnpaid').checked,invOff:[...invOff]}));}catch(e){}
+}
+function saveCorr(){try{localStorage.setItem(C_KEY,JSON.stringify(corr));}catch(e){}}
+
+// ══════════════ IMPORT DES FICHIERS TRIEURS ══════════════
+async function importFiles(list){
+  let added=0, skipped=0, bad=0;
+  for(const f of list){
+    if(/\.xlsx?$/i.test(f.name)){
+      const res=await importInventaire(f);
+      if(res==='ok') added++; else if(res==='dup') skipped++; else bad++;
+      continue;
+    }
+    let r;
+    try{r=JSON.parse(await f.text());}catch(e){bad++;continue;}
+    if(r&&r.type==='corrections'){applyCorrFile(r);continue;}
+    if(!r||r.type!=='trieur'){bad++;continue;}
+    const key=normName(r.trieur)+'|'+(r.exportedAt||f.name);
+    if(files.some(x=>x.key===key)){skipped++;continue;}
+    let date=r.dateTri||'', fromExport=false;
+    if(!date){const d=new Date(r.exportedAt||r.sessionStart||Date.now()); date=localISO(d); fromExport=true;}
+    const tns=new Map();
+    (r.tns||[]).forEach(c=>{c=normCode(c); if(c) tns.set(c,0);});
+    (r.scans||[]).forEach(s=>{const c=normCode(s[0]); if(c) tns.set(c,Number(s[1])||0);});
+    const addr=new Map();
+    (r.adresses||[]).forEach((a,i)=>{
+      const label=String(a.adresse||'').trim(); if(!label) return;
+      const id=a.id||('L:'+label.toUpperCase().replace(/\s+/g,''));   // anciens exports : pas d'id
+      addr.set(id,{label,t:Number(a.t)||0});
+    });
+    files.push({key,name:f.name,trieur:String(r.trieur||'(sans nom)').trim(),tKey:normName(r.trieur),
+      date,dateFromExport:fromExport,exportedAt:r.exportedAt||'',nbTN:Number(r.nbTN),tns,
+      unknown:new Set((r.inconnus||[]).map(u=>normCode(u.tn)).filter(Boolean)),addr});
+    added++;
+  }
+  if(added&&!$('dFrom').value&&!$('dTo').value){
+    const ds=files.map(f=>f.date).sort(); $('dFrom').value=ds[0]; $('dTo').value=ds[ds.length-1];
+  }
+  render();
+  if(skipped||bad) alert(added+' fichier(s) ajouté(s)'+(skipped?'\n'+skipped+' déjà chargé(s)':'')+(bad?'\n'+bad+' ignoré(s) : ni JSON trieur, ni inventaire lisible':''));
+}
+
+// ── Fichiers d'inventaire (Excel : une colonne par statut, TN en dessous)
+const INV_IGNORE=['a nettoyer'];   // colonnes à ignorer entièrement
+const normHead=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLowerCase();
+function dateFromName(n){
+  let m=n.match(/(20\d{2})[-_.](\d{2})[-_.](\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  m=n.match(/(\d{2})[-_.](\d{2})[-_.](20\d{2})/); if(m) return m[3]+'-'+m[2]+'-'+m[1];
+  return '';
+}
+async function importInventaire(f){
+  if(typeof XLSX==='undefined'){alert('Lecture Excel indisponible (bibliothèque non chargée : connexion internet ?)');return 'bad';}
+  let wb;
+  try{wb=XLSX.read(await f.arrayBuffer(),{type:'array'});}catch(e){return 'bad';}
+  const ws=wb.Sheets[wb.SheetNames.find(n=>normHead(n)==='inventaire')||wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+  if(!rows.length) return 'bad';
+  const head=rows[0].map(h=>String(h||'').trim());
+  const cats=new Map(); let ignored=0;
+  head.forEach((h,j)=>{
+    if(!h) return;
+    const ign=INV_IGNORE.includes(normHead(h));
+    const set=new Set();
+    for(let i=1;i<rows.length;i++){const c=normCode(rows[i][j]); if(c) set.add(c);}
+    if(ign){ignored+=set.size;return;}
+    cats.set(h,set);
+  });
+  if(!cats.size) return 'bad';
+  let date=dateFromName(f.name);
+  if(!date){
+    date=(prompt('Date de l\'inventaire « '+f.name+' » (AAAA-MM-JJ) :',$('dTo').value||localISO(new Date()))||'').trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'bad';
+  }
+  const xm=f.name.match(/XPT\s*\d+/i);
+  const key=f.name+'|'+date;
+  if(invs.some(x=>x.key===key)) return 'dup';
+  invs.push({key,name:f.name,date,xpt:xm?xm[0].toUpperCase():'',cats,ignored});
+  return 'ok';
+}
+$('drop').addEventListener('click',()=>$('fileInput').click());
+$('fileInput').addEventListener('change',e=>{importFiles(Array.from(e.target.files));e.target.value='';});
+['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over');}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop',e=>importFiles(Array.from(e.dataTransfer.files)));
+$('btnClear').addEventListener('click',()=>{if(confirm('Retirer tous les fichiers trieurs ?\n(Les erreurs et ajustements sont conservés.)')){files=[];render();}});
+
+// ══════════════ CALCUL ══════════════
+function compute(){
+  const price=Math.max(0,Number($('price').value)||0), penalty=Math.max(0,Number($('penalty').value)||0);
+  const from=$('dFrom').value, to=$('dTo').value, inPeriod=d=>!((from&&d<from)||(to&&d>to));
+  const dupMode=$('dupMode').value, inclUnknown=$('inclUnknown').checked, inclAddr=$('inclAddr').checked, errUnpaid=$('errUnpaid').checked;
+  // TN d'inventaire non payés, par date : date|TN → statut
+  const invMap={};
+  invs.forEach(v=>v.cats.forEach((set,cat)=>{
+    if(invOff.has(cat)) return;
+    set.forEach(c=>{const k=v.date+'|'+c; if(!invMap[k]) invMap[k]=cat;});
+  }));
+
+  // 1. Fusion par trieur + date (les exports d'une même journée sont cumulatifs)
+  const groups={};
+  const getG=(tKey,trieur,date)=>{
+    const k=tKey+'|'+date;
+    return groups[k]=groups[k]||{k,trieur,tKey,date,tns:new Map(),unknown:new Set(),addr:new Map(),fromExport:false,nbFiles:0,adj:0,adjList:[],errs:[]};
+  };
+  files.forEach(f=>{
+    if(!inPeriod(f.date)) return;
+    const g=getG(f.tKey,f.trieur,f.date);
+    g.nbFiles++; if(f.dateFromExport) g.fromExport=true;
+    f.tns.forEach((t,c)=>{const o=g.tns.get(c); if(o===undefined||(t&&(!o||t<o))) g.tns.set(c,t);});
+    f.unknown.forEach(c=>g.unknown.add(c));
+    f.addr.forEach((a,id)=>{if(!g.addr.has(id)) g.addr.set(id,a);});
+  });
+  corr.adjust.forEach(a=>{
+    if(!inPeriod(a.date)) return;
+    const g=getG(a.tKey,a.trieur,a.date); g.adj+=a.delta; g.adjList.push(a);
+  });
+
+  // 2. Doublons : qui a scanné chaque TN en premier, par date
+  const owners={};
+  Object.values(groups).forEach(g=>g.tns.forEach((t,c)=>{(owners[g.date+'|'+c]=owners[g.date+'|'+c]||[]).push({g,t});}));
+  const winner={};   // date|TN → groupe gagnant (ou absent si on ne peut pas trancher)
+  Object.keys(owners).forEach(k=>{
+    const o=owners[k]; if(o.length<2) return;
+    const timed=o.filter(x=>x.t);
+    if(timed.length===o.length) winner[k]=timed.reduce((a,b)=>b.t<a.t?b:a).g;
+  });
+
+  // 3. Erreurs de tri : attribuées au trieur crédité du colis
+  const errInfo=corr.errors.map(e=>{
+    const o=owners[e.date+'|'+e.tn]||[];
+    let resp=[];
+    if(o.length===1) resp=[o[0].g];
+    else if(o.length>1) resp=(dupMode==='first'&&winner[e.date+'|'+e.tn])?[winner[e.date+'|'+e.tn]]:o.map(x=>x.g);
+    let elsewhere='';
+    if(!o.length){
+      const other=Object.keys(owners).filter(k=>k.endsWith('|'+e.tn)).map(k=>fmtD(k.split('|')[0])+' par '+owners[k].map(x=>x.g.trieur).join(', '));
+      if(other.length) elsewhere='scanné le '+other.join(' ; ');
+      else if(!inPeriod(e.date)) elsewhere='hors période';
+    }
+    resp.forEach(g=>g.errs.push(e));
+    return {e,resp,others:o.length>1?o.map(x=>x.g.trieur):[],elsewhere};
+  });
+
+  // 4. Comptes par trieur et par date
+  const items=[];   // détail colis par colis (onglet Scans)
+  Object.values(groups).forEach(g=>{
+    const errSet=new Set(g.errs.map(e=>e.tn));
+    let tnPaid=0, dupLost=0, dupAll=0, unk=0, unkUnpaid=0, errUnpaidN=0, invN=0, times=[];
+    g.tns.forEach((t,c)=>{
+      const k=g.date+'|'+c, isUnk=g.unknown.has(c), isDup=(owners[k]||[]).length>1;
+      let st='paye', info='';
+      if(t) times.push(t);
+      if(isUnk) unk++;
+      if(isDup){dupAll++; info='Aussi scanné par '+owners[k].filter(x=>x.g!==g).map(x=>x.g.trieur+' ('+fmtHs(x.t)+')').join(', ');}
+      if(isDup&&dupMode==='first'&&winner[k]&&winner[k]!==g){st='dup';dupLost++;}
+      else if(errSet.has(c)&&errUnpaid){st='err';errUnpaidN++;}
+      else if(invMap[k]){st='inv';invN++;info=(info?info+' · ':'')+'Inventaire : '+invMap[k];}
+      else if(isUnk&&!inclUnknown){st='unpaid';unkUnpaid++;}
+      else tnPaid++;
+      items.push({g,t,code:c,kind:isUnk?'hors':'tn',st,err:errSet.has(c),info});
+    });
+    g.addr.forEach(a=>{
+      if(a.t) times.push(a.t);
+      items.push({g,t:a.t,code:a.label,kind:'adr',st:inclAddr?'paye':'unpaid',err:false,info:''});
+    });
+    times.sort((a,b)=>a-b);
+    g.first=times[0]||0; g.last=times[times.length-1]||0;
+    g.nbTn=g.tns.size; g.nbAddr=g.addr.size; g.tries=g.nbTn+g.nbAddr;
+    g.unk=unk; g.dupAll=dupAll; g.dupLost=dupLost; g.nbErr=g.errs.length; g.errUnpaid=errUnpaidN; g.inv=invN;
+    g.paid=Math.max(0,tnPaid+(inclAddr?g.nbAddr:0)+g.adj);
+    g.pen=g.nbErr*penalty;
+    g.amount=g.paid*price-g.pen;
+    const dur=g.last-g.first;
+    g.cadence=(dur>=5*60000)?g.tries/(dur/3600000):0;
+  });
+  const G=Object.values(groups).sort((a,b)=>a.trieur.localeCompare(b.trieur,'fr')||a.date.localeCompare(b.date));
+  items.sort((a,b)=>a.g.date.localeCompare(b.g.date)||a.g.trieur.localeCompare(b.g.trieur,'fr')||(a.t||0)-(b.t||0));
+  return {G,items,errInfo,price,penalty};
+}
+
+// ══════════════ AFFICHAGE ══════════════
+function renderInvs(){
+  // TN réellement scannés par les trieurs, par date (pour savoir combien de colis d'inventaire sont concernés)
+  const scanned={};
+  paidFiles().forEach(f=>{const s=scanned[f.date]=scanned[f.date]||new Set();f.tns.forEach((t,c)=>s.add(c));});
+  $('invFiles').innerHTML=invs.map((v,i)=>{
+    let tot=0, hit=0; const sc=scanned[v.date]||new Set();
+    v.cats.forEach(set=>set.forEach(c=>{tot++; if(sc.has(c)) hit++;}));
+    const w=[];
+    if(!scanned[v.date]) w.push('Aucun fichier trieur chargé pour ce jour');
+    return '<div class="file"><span class="x" data-inv="'+i+'" title="Retirer">✕</span>'+
+      '📦 <b>Inventaire'+(v.xpt?' '+esc(v.xpt):'')+'</b> · '+tot+' colis'+
+      '<div style="display:flex;align-items:center;gap:6px;margin:4px 0"><span class="muted">Triés le</span><input type="date" data-invd="'+i+'" value="'+v.date+'" style="padding:3px 6px;font-size:12px;width:auto"/></div>'+
+      '<span class="muted">'+esc(v.name)+'</span>'+
+      '<div>'+hit+' de ces colis ont été scannés par les trieurs ce jour-là'+(v.ignored?' · <span class="muted">'+v.ignored+' « À nettoyer » ignorés</span>':'')+'</div>'+
+      w.map(x=>'<div class="w">⚠️ '+esc(x)+'</div>').join('')+'</div>';
+  }).join('');
+  $('invFiles').querySelectorAll('[data-inv]').forEach(x=>x.addEventListener('click',()=>{invs.splice(Number(x.dataset.inv),1);render();}));
+  $('invFiles').querySelectorAll('[data-invd]').forEach(x=>x.addEventListener('change',()=>{
+    const v=invs[Number(x.dataset.invd)]; if(!x.value) return; v.date=x.value; v.key=v.name+'|'+v.date; render();
+  }));
+  const cats=new Map();
+  invs.forEach(v=>v.cats.forEach((set,cat)=>cats.set(cat,(cats.get(cat)||0)+set.size)));
+  $('invOpts').innerHTML=cats.size
+    ?'<div class="muted" style="font-size:12px">Colis triés le jour de l\'inventaire et présents dans ces colonnes : <b>non payés</b> si la case est cochée.</div>'+
+      [...cats.entries()].filter(([cat,n])=>n>0).map(([cat,n])=>'<label class="chk"><input type="checkbox" data-cat="'+esc(cat)+'"'+(invOff.has(cat)?'':' checked')+'/> <span>Ne pas payer : '+esc(cat)+' <span class="muted">('+n+')</span></span></label>').join('')
+    :'<div class="muted" style="font-size:12px">Chargez un fichier d\'inventaire pour choisir quels statuts ne sont pas payés.</div>';
+  $('invOpts').querySelectorAll('[data-cat]').forEach(c=>c.addEventListener('change',()=>{
+    c.checked?invOff.delete(c.dataset.cat):invOff.add(c.dataset.cat); saveParams(); render();
+  }));
+}
+
+function renderFiles(){
+  $('btnClear').style.display=files.length?'':'none';
+  const sorted=files.slice().sort((a,b)=>a.trieur.localeCompare(b.trieur,'fr')||a.date.localeCompare(b.date)||a.exportedAt.localeCompare(b.exportedAt));
+  $('files').innerHTML=sorted.map(f=>{
+    const w=[];
+    if(f.nbTN!==f.tns.size) w.push('Nombre de TN incohérent (annoncé '+f.nbTN+', lu '+f.tns.size+')');
+    if(f.dateFromExport) w.push('Pas de date de tri : date d\'export utilisée');
+    if(f.tns.size&&![...f.tns.values()].some(Boolean)) w.push('Pas d\'heures de scan (ancienne version de l\'appli)');
+    return '<div class="file"><span class="x" data-k="'+esc(f.key)+'" title="Retirer">✕</span>'+
+      '👤 <b>'+esc(f.trieur)+'</b> · 📅 '+fmtD(f.date)+' · '+(f.tns.size+f.addr.size)+' colis<br/>'+
+      '<span class="muted">'+esc(f.name)+'</span>'+w.map(x=>'<div class="w">⚠️ '+esc(x)+'</div>').join('')+'</div>';
+  }).join('');
+  $('files').querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{files=files.filter(f=>f.key!==x.dataset.k);render();}));
+}
+
+let last=null;
+function render(){
+  renderFiles();
+  // v2 : compute() reste inchangé, on lui présente seulement les fichiers retenus pour la paie
+  const paid=paidFiles();
+  last=computeWith(paid); tagSources(paid);
+  renderInvs();
+  const {G}=last;
+  const tot=G.reduce((s,g)=>({tries:s.tries+g.tries,paid:s.paid+g.paid,amount:s.amount+g.amount,err:s.err+g.nbErr}),{tries:0,paid:0,amount:0,err:0});
+  $('kTrieurs').textContent=new Set(G.map(g=>g.tKey)).size;
+  $('kTries').textContent=num(tot.tries);
+  $('kErr').textContent=num(tot.err);
+  $('kPaid').textContent=num(tot.paid);
+  $('kMontant').textContent=eur(tot.amount);
+  // listes déroulantes
+  const trieurs=[...new Map(G.map(g=>[g.tKey,g.trieur])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'fr'));
+  const dates=[...new Set(G.map(g=>g.date))].sort();
+  fillSelect($('fTrieur'),[['','Tous']].concat(trieurs));
+  fillSelect($('fDate'),[['','Toutes']].concat(dates.map(d=>[d,fmtD(d)])));
+  fillSelect($('gDate'),dates.slice().reverse().map(d=>[d,fmtD(d)]));
+  const allNames=new Map(); files.forEach(f=>allNames.set(f.tKey,f.trieur)); corr.adjust.forEach(a=>allNames.set(a.tKey,a.trieur));
+  $('trieursList').innerHTML=[...allNames.values()].sort().map(n=>'<option value="'+esc(n)+'">').join('');
+  if(!$('eDate').value&&dates.length) $('eDate').value=dates[dates.length-1];
+  if(!$('aDate').value&&dates.length) $('aDate').value=dates[dates.length-1];
+  renderPaie(); renderScans(); renderGraph(); renderCorr();
+  renderSb(); renderCtrl();
+}
+function fillSelect(sel,opts){
+  const v=sel.value;
+  sel.innerHTML=opts.map(o=>'<option value="'+esc(o[0])+'">'+esc(o[1])+'</option>').join('');
+  if(opts.some(o=>o[0]===v)) sel.value=v;
+}
+
+// ── Onglet Paie ──
+function paieRows(){
+  const {G}=last;
+  if(paieView==='detail') return G;
+  const key=paieView==='trieur'?'tKey':'date';
+  const m={};
+  G.forEach(g=>{
+    const x=m[g[key]]=m[g[key]]||{trieur:g.trieur,date:g.date,jours:new Set(),trieurs:new Set(),tries:0,nbAddr:0,unk:0,dupLost:0,nbErr:0,inv:0,adj:0,paid:0,pen:0,amount:0,first:0,last:0,firstD:'',lastD:'',sbN:0,srcs:new Set()};
+    x.jours.add(g.date); x.trieurs.add(g.tKey);
+    if(/Supabase/.test(g.src)) x.sbN++;
+    if(g.src) g.src.split(' + ').forEach(s=>x.srcs.add(s));
+    ['tries','nbAddr','unk','dupLost','nbErr','inv','adj','paid','pen','amount'].forEach(k=>x[k]+=g[k]);
+    if(g.first&&(!x.first||g.first<x.first)){x.first=g.first;x.firstD=g.date;}
+    if(g.last&&g.last>x.last){x.last=g.last;x.lastD=g.date;}
+  });
+  return Object.values(m).sort((a,b)=>paieView==='trieur'?a.trieur.localeCompare(b.trieur,'fr'):a.date.localeCompare(b.date));
+}
+function renderPaie(){
+  const el=$('tPaie');
+  if(!last.G.length){el.innerHTML='<div class="empty">'+(files.length?'Aucune donnée sur la période choisie.':'Chargez les JSON exportés depuis l\'appli mobile des trieurs.')+'</div>';return;}
+  const rows=paieRows(), first=$('dupMode').value==='first';
+  const adjCell=v=>v?'<span class="'+(v>0?'pos':'neg')+'">'+(v>0?'+':'')+num(v)+'</span>':'0';
+  const T=rows.reduce((s,r)=>{['tries','nbAddr','unk','dupLost','nbErr','inv','adj','paid','pen','amount'].forEach(k=>s[k]=(s[k]||0)+r[k]);return s;},{});
+  let h='';
+  if(paieView==='trieur'){
+    h='<table><thead><tr><th>Trieur</th><th class="n">Jours</th><th>1er colis</th><th>Dernier colis</th><th class="n">Colis triés</th><th class="n">dont adresse</th>'+
+      (first?'<th class="n">Doublons<br/>non payés</th>':'')+'<th class="n">Erreurs</th><th class="n">Taux<br/>d\'erreur</th><th class="n">Inventaire</th><th class="n">Ajust.</th><th class="n">Colis payés</th><th class="n">Pénalités</th><th class="n">Montant</th></tr></thead><tbody>'+
+      rows.map(r=>{
+        const multi=r.jours.size>1;
+        return '<tr><td>'+esc(r.trieur)+(r.sbN?'<span class="tag sb" title="Jours payés à partir de Supabase">☁ Supabase : '+r.sbN+' j.</span>':'')+'</td><td class="n">'+r.jours.size+'</td>'+
+          '<td>'+(r.first?(multi?fmtDs(r.firstD)+' ':'')+fmtH(r.first):'—')+'</td><td>'+(r.last?(multi?fmtDs(r.lastD)+' ':'')+fmtH(r.last):'—')+'</td>'+
+          '<td class="n">'+num(r.tries)+'</td><td class="n">'+num(r.nbAddr)+'</td>'+(first?'<td class="n">'+num(r.dupLost)+'</td>':'')+
+          '<td class="n">'+num(r.nbErr)+'</td><td class="n">'+(r.tries?(r.nbErr/r.tries*100).toFixed(1).replace('.',',')+' %':'—')+'</td><td class="n">'+num(r.inv)+'</td>'+
+          '<td class="n">'+adjCell(r.adj)+'</td><td class="n">'+num(r.paid)+'</td><td class="n">'+(r.pen?'<span class="neg">−'+eur(r.pen)+'</span>':'—')+'</td><td class="n"><b>'+eur(r.amount)+'</b></td></tr>';
+      }).join('')+
+      '<tr class="tot"><td>Total</td><td></td><td></td><td></td><td class="n">'+num(T.tries)+'</td><td class="n">'+num(T.nbAddr)+'</td>'+(first?'<td class="n">'+num(T.dupLost)+'</td>':'')+
+      '<td class="n">'+num(T.nbErr)+'</td><td></td><td class="n">'+num(T.inv)+'</td><td class="n">'+(T.adj>0?'+':'')+num(T.adj)+'</td><td class="n">'+num(T.paid)+'</td><td class="n">'+(T.pen?'−'+eur(T.pen):'—')+'</td><td class="n">'+eur(T.amount)+'</td></tr></tbody></table>';
+  }else if(paieView==='detail'){
+    let body='', cur=null, sub=null;
+    const S=['tries','nbAddr','dupLost','nbErr','inv','adj','paid','pen','amount'];
+    const flush=()=>{ if(sub) body+='<tr class="sub"><td colspan="6">Sous-total '+esc(sub.trieur)+'</td><td class="n">'+num(sub.tries)+'</td><td class="n">'+num(sub.nbAddr)+'</td>'+(first?'<td class="n">'+num(sub.dupLost)+'</td>':'')+
+      '<td class="n">'+num(sub.nbErr)+'</td><td class="n">'+num(sub.inv)+'</td><td class="n">'+adjCell(sub.adj)+'</td><td class="n">'+num(sub.paid)+'</td><td class="n">'+(sub.pen?'−'+eur(sub.pen):'—')+'</td><td class="n">'+eur(sub.amount)+'</td></tr>'; };
+    rows.forEach(g=>{
+      if(cur!==g.tKey){flush();cur=g.tKey;sub={trieur:g.trieur};S.forEach(k=>sub[k]=0);}
+      S.forEach(k=>sub[k]+=g[k]);
+      body+='<tr><td>'+esc(g.trieur)+'</td><td>'+fmtD(g.date)+(g.fromExport?'<span class="tag" title="Date d\'export : pas de date de tri dans le fichier">export</span>':'')+
+        (g.nbFiles>1?'<span class="tag mut" title="Plusieurs exports fusionnés">'+g.nbFiles+' fichiers</span>':'')+(g.nbFiles===0?'<span class="tag mut">ajustement seul</span>':'')+
+        (/Supabase/.test(g.src)?'<span class="tag sb" title="Payé à partir de : '+g.src+'">☁ '+g.src+'</span>':'')+'</td>'+
+        '<td>'+fmtH(g.first)+'</td><td>'+fmtH(g.last)+'</td><td>'+fmtDur(g.last-g.first)+'</td><td class="n">'+(g.cadence?Math.round(g.cadence)+'/h':'—')+'</td>'+
+        '<td class="n">'+num(g.tries)+'</td><td class="n">'+num(g.nbAddr)+'</td>'+(first?'<td class="n">'+num(g.dupLost)+'</td>':'')+
+        '<td class="n">'+num(g.nbErr)+'</td><td class="n">'+num(g.inv)+'</td><td class="n">'+adjCell(g.adj)+'</td><td class="n">'+num(g.paid)+'</td><td class="n">'+(g.pen?'<span class="neg">−'+eur(g.pen)+'</span>':'—')+'</td><td class="n"><b>'+eur(g.amount)+'</b></td></tr>';
+    });
+    flush();
+    h='<table><thead><tr><th>Trieur</th><th>Date</th><th>1er colis</th><th>Dernier</th><th>Durée</th><th class="n">Cadence</th><th class="n">Colis triés</th><th class="n">dont adresse</th>'+
+      (first?'<th class="n">Doublons<br/>non payés</th>':'')+'<th class="n">Erreurs</th><th class="n">Inventaire</th><th class="n">Ajust.</th><th class="n">Colis payés</th><th class="n">Pénalités</th><th class="n">Montant</th></tr></thead><tbody>'+body+
+      '<tr class="tot"><td colspan="6">Total</td><td class="n">'+num(T.tries)+'</td><td class="n">'+num(T.nbAddr)+'</td>'+(first?'<td class="n">'+num(T.dupLost)+'</td>':'')+
+      '<td class="n">'+num(T.nbErr)+'</td><td class="n">'+num(T.inv)+'</td><td class="n">'+(T.adj>0?'+':'')+num(T.adj)+'</td><td class="n">'+num(T.paid)+'</td><td class="n">'+(T.pen?'−'+eur(T.pen):'—')+'</td><td class="n">'+eur(T.amount)+'</td></tr></tbody></table>';
+  }else{
+    h='<table><thead><tr><th>Date</th><th class="n">Trieurs</th><th>1er colis</th><th>Dernier colis</th><th class="n">Colis triés</th><th class="n">Erreurs</th><th class="n">Inventaire</th><th class="n">Ajust.</th><th class="n">Colis payés</th><th class="n">Montant</th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td>'+fmtD(r.date)+(r.sbN?'<span class="tag sb" title="Trieurs payés à partir de Supabase ce jour-là">☁ Supabase : '+r.sbN+' trieur'+(r.sbN>1?'s':'')+'</span>':'')+'</td><td class="n">'+r.trieurs.size+'</td><td>'+fmtH(r.first)+'</td><td>'+fmtH(r.last)+'</td><td class="n">'+num(r.tries)+'</td><td class="n">'+num(r.nbErr)+'</td><td class="n">'+num(r.inv)+'</td><td class="n">'+adjCell(r.adj)+'</td><td class="n">'+num(r.paid)+'</td><td class="n"><b>'+eur(r.amount)+'</b></td></tr>').join('')+
+      '<tr class="tot"><td>Total</td><td></td><td></td><td></td><td class="n">'+num(T.tries)+'</td><td class="n">'+num(T.nbErr)+'</td><td class="n">'+num(T.inv)+'</td><td class="n">'+(T.adj>0?'+':'')+num(T.adj)+'</td><td class="n">'+num(T.paid)+'</td><td class="n">'+eur(T.amount)+'</td></tr></tbody></table>';
+  }
+  el.innerHTML=h;
+}
+
+// ── Onglet Scans ──
+const ST_LBL={paye:'<span class="tag ok">Payé</span>',dup:'<span class="tag mut">Doublon non payé</span>',err:'<span class="tag err">Erreur de tri</span>',inv:'<span class="tag">Inventaire</span>',unpaid:'<span class="tag mut">Non payé (option)</span>'};
+const KIND_LBL={tn:'TN',hors:'TN hors liste',adr:'Adresse'};
+function filteredItems(){
+  const t=$('fTrieur').value, d=$('fDate').value, st=$('fStatut').value, q=normCode($('fSearch').value);
+  return last.items.filter(i=>{
+    if(t&&i.g.tKey!==t) return false;
+    if(d&&i.g.date!==d) return false;
+    if(st==='paye'&&i.st!=='paye') return false;
+    if(st==='dup'&&i.st!=='dup') return false;
+    if(st==='err'&&!i.err) return false;
+    if(st==='hors'&&i.kind!=='hors') return false;
+    if(st==='adr'&&i.kind!=='adr') return false;
+    if(st==='unpaid'&&i.st!=='unpaid') return false;
+    if(st==='inv'&&i.st!=='inv') return false;
+    if(q&&normCode(i.code).indexOf(q)<0) return false;
+    return true;
+  });
+}
+function renderScans(){
+  const el=$('tScans');
+  if(!last.items.length){el.innerHTML='<div class="empty">Aucun scan.</div>';$('scansCount').textContent='';return;}
+  const list=filteredItems(), MAX=1500;
+  $('scansCount').textContent=num(list.length)+' colis'+(list.length>MAX?' — affichage des '+num(MAX)+' premiers (le CSV contient tout)':'');
+  el.innerHTML='<table><thead><tr><th>Date</th><th>Heure</th><th>Trieur</th><th>TN / adresse</th><th>Type</th><th>Statut</th><th>Remarque</th></tr></thead><tbody>'+
+    list.slice(0,MAX).map(i=>'<tr><td>'+fmtD(i.g.date)+'</td><td>'+fmtHs(i.t)+'</td><td>'+esc(i.g.trieur)+'</td><td style="font-family:Courier New,monospace">'+esc(i.code)+'</td>'+
+      '<td>'+KIND_LBL[i.kind]+'</td><td>'+ST_LBL[i.st]+(i.err&&i.st!=='err'?' <span class="tag err">Erreur</span>':'')+'</td><td class="wr muted" style="font-size:12px">'+esc(i.info)+'</td></tr>').join('')+
+    '</tbody></table>';
+}
+['fTrieur','fDate','fStatut'].forEach(id=>$(id).addEventListener('change',renderScans));
+$('fSearch').addEventListener('input',renderScans);
+
+// ── Onglet Graphique (SVG) ──
+function renderGraph(){
+  const wrap=$('gWrap'), tip=$('tip');
+  wrap.querySelectorAll('svg,.empty').forEach(n=>n.remove());
+  const date=$('gDate').value, mode=$('gMode').value;
+  const groups=last.G.filter(g=>g.date===date);
+  // couleur fixe par trieur : ordre alphabétique de tous les trieurs du jour
+  const series=groups.map((g,i)=>{
+    const ts=[];
+    g.tns.forEach(t=>{if(t) ts.push(t);}); g.addr.forEach(a=>{if(a.t) ts.push(a.t);});
+    ts.sort((a,b)=>a-b);
+    return {g,name:g.trieur,ts,color:SERIES[i%SERIES.length],idx:i};
+  }).filter(s=>s.ts.length);
+  $('gTitle').textContent=date?(mode==='cumul'?'Colis scannés cumulés':'Colis scannés par quart d\'heure')+' — '+fmtD(date):'';
+  if(!series.length){
+    $('gLegend').innerHTML='';
+    wrap.insertAdjacentHTML('beforeend','<div class="empty">'+(date?'Pas d\'heures de scan pour ce jour.':'Aucune donnée.')+'</div>');
+    return;
+  }
+  if(series.length>SERIES.length) $('gTitle').textContent+=' (plus de 8 trieurs : certaines couleurs se répètent, utilisez la légende)';
+  $('gLegend').innerHTML=series.map(s=>'<label class="'+(hidden.has(s.g.tKey)?'off':'')+'" data-k="'+esc(s.g.tKey)+'"><span class="sw" style="background:'+s.color+'"></span>'+esc(s.name)+' <span class="muted">('+s.ts.length+')</span></label>').join('');
+  $('gLegend').querySelectorAll('label').forEach(l=>l.addEventListener('click',()=>{const k=l.dataset.k;hidden.has(k)?hidden.delete(k):hidden.add(k);renderGraph();}));
+  const vis=series.filter(s=>!hidden.has(s.g.tKey));
+
+  // axe du temps arrondi au quart d'heure
+  const Q=15*60000;
+  const allT=series.flatMap(s=>s.ts);
+  const t0=Math.floor(Math.min(...allT)/Q)*Q, t1=Math.ceil((Math.max(...allT)+1)/Q)*Q;
+  const W=900,H=380,m={l:48,r:110,t:14,b:34};
+  const x=t=>m.l+(t-t0)/(t1-t0)*(W-m.l-m.r);
+  let pts;   // par série : [[t,valeur]]
+  if(mode==='cumul'){
+    pts=vis.map(s=>{const p=[[s.ts[0],0]];s.ts.forEach((t,i)=>p.push([t,i+1]));return p;});
+  }else{
+    const nb=Math.round((t1-t0)/Q);
+    pts=vis.map(s=>{const c=new Array(nb).fill(0);s.ts.forEach(t=>c[Math.min(nb-1,Math.floor((t-t0)/Q))]++);return c.map((v,i)=>[t0+i*Q+Q/2,v]);});
+  }
+  const maxV=Math.max(1,...pts.flat().map(p=>p[1]));
+  const step=niceStep(maxV/5), yMax=Math.ceil(maxV/step)*step;
+  const y=v=>H-m.b-(v/yMax)*(H-m.t-m.b);
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const grid=css('--border'), muted=css('--muted'), fg=css('--fg'), surf=css('--surf');
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc($('gTitle').textContent)+'">';
+  for(let v=0;v<=yMax;v+=step) svg+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="'+grid+'"/><text x="'+(m.l-8)+'" y="'+(y(v)+4)+'" fill="'+muted+'" font-size="11" text-anchor="end">'+num(v)+'</text>';
+  const hStep=(t1-t0)>6*3600000?3600000:(t1-t0)>2*3600000?1800000:Q;
+  for(let t=Math.ceil(t0/hStep)*hStep;t<=t1;t+=hStep) svg+='<line x1="'+x(t)+'" x2="'+x(t)+'" y1="'+(H-m.b)+'" y2="'+(H-m.b+4)+'" stroke="'+muted+'"/><text x="'+x(t)+'" y="'+(H-m.b+18)+'" fill="'+muted+'" font-size="11" text-anchor="middle">'+fmtH(t)+'</text>';
+  svg+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+(H-m.b)+'" y2="'+(H-m.b)+'" stroke="'+muted+'"/>';
+  // lignes (escalier pour le cumul), avec étiquette directe en fin de ligne si 4 trieurs ou moins
+  const labels=[];
+  vis.forEach((s,i)=>{
+    const p=pts[i];
+    let d='M'+x(p[0][0]).toFixed(1)+','+y(p[0][1]).toFixed(1);
+    for(let j=1;j<p.length;j++){
+      if(mode==='cumul') d+='H'+x(p[j][0]).toFixed(1)+'V'+y(p[j][1]).toFixed(1);
+      else d+='L'+x(p[j][0]).toFixed(1)+','+y(p[j][1]).toFixed(1);
+    }
+    svg+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round"/>';
+    const lp=p[p.length-1];
+    if(mode==='cumul'){
+      svg+='<circle cx="'+x(lp[0])+'" cy="'+y(lp[1])+'" r="4" fill="'+s.color+'" stroke="'+surf+'" stroke-width="2"/>';
+      if(vis.length<=4) labels.push({y:y(lp[1]),x:x(lp[0]),txt:s.name+' '+lp[1]});
+    }else{
+      p.forEach(q=>{ if(q[1]) svg+='<circle cx="'+x(q[0]).toFixed(1)+'" cy="'+y(q[1]).toFixed(1)+'" r="3.5" fill="'+s.color+'" stroke="'+surf+'" stroke-width="2"/>'; });
+    }
+  });
+  labels.sort((a,b)=>a.y-b.y).forEach((l,i,arr)=>{if(i&&l.y-arr[i-1].y<14) l.y=arr[i-1].y+14;});
+  labels.forEach(l=>svg+='<text x="'+(Math.min(l.x,W-m.r)+8)+'" y="'+(l.y+4)+'" fill="'+fg+'" font-size="12" font-weight="700">'+esc(l.txt.trim())+'</text>');
+  svg+='<line id="gCross" x1="0" x2="0" y1="'+m.t+'" y2="'+(H-m.b)+'" stroke="'+muted+'" stroke-dasharray="3,3" visibility="hidden"/>';
+  svg+='<rect x="'+m.l+'" y="'+m.t+'" width="'+(W-m.l-m.r)+'" height="'+(H-m.t-m.b)+'" fill="transparent" id="gHit"/>';
+  svg+='</svg>';
+  wrap.insertAdjacentHTML('afterbegin',svg);
+
+  // survol : valeur de chaque trieur à l'heure pointée
+  const svgEl=wrap.querySelector('svg'), cross=svgEl.querySelector('#gCross'), hit=svgEl.querySelector('#gHit');
+  hit.addEventListener('mousemove',ev=>{
+    const r=svgEl.getBoundingClientRect(), sx=(ev.clientX-r.left)/r.width*W;
+    let t=t0+(sx-m.l)/(W-m.l-m.r)*(t1-t0);
+    let rows, head;
+    if(mode==='cumul'){
+      head=fmtH(t);
+      rows=vis.map((s,i)=>{let n=0;for(const ts of s.ts){if(ts<=t)n++;else break;}return {s,v:n};});
+    }else{
+      const k=Math.max(0,Math.min(pts[0].length-1,Math.floor((t-t0)/Q)));
+      t=t0+k*Q+Q/2; head=fmtH(t0+k*Q)+' – '+fmtH(t0+(k+1)*Q);
+      rows=vis.map((s,i)=>({s,v:pts[i][k][1]}));
+    }
+    cross.setAttribute('x1',x(t));cross.setAttribute('x2',x(t));cross.setAttribute('visibility','visible');
+    rows.sort((a,b)=>b.v-a.v);
+    tip.innerHTML='<div class="t">'+head+'</div>'+rows.map(r=>'<div class="r"><span class="sw" style="width:10px;height:3px;border-radius:2px;background:'+r.s.color+'"></span>'+esc(r.s.name)+'<b>'+num(r.v)+'</b></div>').join('');
+    tip.style.display='block';
+    const px=(x(t)/W)*r.width, wr=wrap.getBoundingClientRect();
+    const left=px+14+tip.offsetWidth>wr.width?px-14-tip.offsetWidth:px+14;
+    tip.style.left=left+'px'; tip.style.top=Math.max(0,(ev.clientY-wr.top)-tip.offsetHeight/2)+'px';
+  });
+  hit.addEventListener('mouseleave',()=>{tip.style.display='none';cross.setAttribute('visibility','hidden');});
+}
+function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(Math.max(raw,1))));const f=raw/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p;}
+$('gDate').addEventListener('change',renderGraph);
+$('gMode').addEventListener('change',renderGraph);
+
+// ── Onglet Erreurs & ajustements ──
+function renderCorr(){
+  const ei=last.errInfo;
+  $('tErr').innerHTML=ei.length?'<table><thead><tr><th>Date</th><th>TN</th><th>Trieur responsable</th><th></th></tr></thead><tbody>'+
+    ei.slice().sort((a,b)=>b.e.date.localeCompare(a.e.date)).map(x=>{
+      let who=x.resp.length?x.resp.map(g=>'<b>'+esc(g.trieur)+'</b>').join(', '):'<span class="tag err">Non trouvé</span>'+(x.elsewhere?' <span class="muted" style="font-size:12px">'+esc(x.elsewhere)+'</span>':'');
+      if(x.others.length>1) who+='<div class="muted" style="font-size:11px">Scanné par : '+esc(x.others.join(', '))+'</div>';
+      if(x.e.note) who+='<div class="muted" style="font-size:11px">'+esc(x.e.note)+'</div>';
+      return '<tr><td>'+fmtD(x.e.date)+'</td><td style="font-family:Courier New,monospace">'+esc(x.e.tn)+'</td><td class="wr">'+who+'</td><td><button class="btn sm danger" data-del-err="'+x.e.id+'">✕</button></td></tr>';
+    }).join('')+'</tbody></table>':'<div class="muted" style="font-size:13px">Aucune erreur saisie.</div>';
+  $('tErr').querySelectorAll('[data-del-err]').forEach(b=>b.addEventListener('click',()=>{corr.errors=corr.errors.filter(e=>e.id!==b.dataset.delErr);saveCorr();render();}));
+
+  $('tAdj').innerHTML=corr.adjust.length?'<table><thead><tr><th>Date</th><th>Trieur</th><th class="n">Colis</th><th>Motif</th><th></th></tr></thead><tbody>'+
+    corr.adjust.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(a=>'<tr><td>'+fmtD(a.date)+'</td><td>'+esc(a.trieur)+'</td><td class="n '+(a.delta>0?'pos':'neg')+'">'+(a.delta>0?'+':'')+a.delta+'</td><td class="wr">'+esc(a.motif)+'</td><td><button class="btn sm danger" data-del-adj="'+a.id+'">✕</button></td></tr>').join('')+
+    '</tbody></table>':'<div class="muted" style="font-size:13px">Aucun ajustement.</div>';
+  $('tAdj').querySelectorAll('[data-del-adj]').forEach(b=>b.addEventListener('click',()=>{corr.adjust=corr.adjust.filter(a=>a.id!==b.dataset.delAdj);saveCorr();render();}));
+}
+$('btnAddErr').addEventListener('click',()=>{
+  const date=$('eDate').value; if(!date){alert('Indiquez la date du tri.');return;}
+  const tns=[...new Set($('eTns').value.split(/[\s,;]+/).map(normCode).filter(Boolean))];
+  if(!tns.length){alert('Collez au moins un TN.');return;}
+  let added=0, already=0;
+  tns.forEach(tn=>{
+    if(corr.errors.some(e=>e.date===date&&e.tn===tn)){already++;return;}
+    corr.errors.push({id:uid(),date,tn,note:$('eNote').value.trim()}); added++;
+  });
+  saveCorr(); $('eTns').value=''; render();
+  const notFound=last.errInfo.filter(x=>x.e.date===date&&tns.includes(x.e.tn)&&!x.resp.length).length;
+  alert(added+' erreur(s) ajoutée(s)'+(already?'\n'+already+' déjà saisie(s)':'')+(notFound?'\n⚠️ '+notFound+' TN non trouvé(s) chez les trieurs ce jour-là':''));
+});
+$('btnAddAdj').addEventListener('click',()=>{
+  const trieur=$('aTrieur').value.trim(), date=$('aDate').value, nb=Math.floor(Number($('aNb').value)), motif=$('aMotif').value.trim();
+  if(!trieur||!date||!(nb>0)){alert('Renseignez le trieur, la date et un nombre de colis.');return;}
+  if(!motif){alert('Indiquez un motif : il sera utile en cas de contestation.');return;}
+  // reprend l'orthographe d'un trieur déjà connu
+  const tKey=normName(trieur), known=files.find(f=>f.tKey===tKey)||corr.adjust.find(a=>a.tKey===tKey);
+  corr.adjust.push({id:uid(),trieur:known?known.trieur:trieur,tKey,date,delta:nb*Number($('aSign').value),motif});
+  saveCorr(); $('aNb').value=1; $('aMotif').value=''; render();
+});
+
+// sauvegarde / restauration des corrections
+$('btnSave').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify({type:'corrections',version:1,savedAt:new Date().toISOString(),...corr},null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='corrections_tri_'+localISO(new Date())+'.json'; a.click();
+});
+$('btnLoad').addEventListener('click',()=>$('corrInput').click());
+$('corrInput').addEventListener('change',async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{const r=JSON.parse(await f.text()); if(r.type!=='corrections') throw 0; applyCorrFile(r); render();}
+  catch(err){alert('Ce fichier n\'est pas une sauvegarde de corrections.');}
+});
+function applyCorrFile(r){
+  const ids=new Set(corr.errors.map(e=>e.id).concat(corr.adjust.map(a=>a.id)));
+  let n=0;
+  (r.errors||[]).forEach(e=>{if(!ids.has(e.id)&&!corr.errors.some(x=>x.date===e.date&&x.tn===e.tn)){corr.errors.push(e);n++;}});
+  (r.adjust||[]).forEach(a=>{if(!ids.has(a.id)){corr.adjust.push(a);n++;}});
+  saveCorr(); alert(n+' correction(s) restaurée(s).');
+}
+
+// ── Exports CSV (séparateur ; pour Excel FR) ──
+function csv(rows,name){
+  const txt='﻿'+rows.map(r=>r.map(v=>{v=String(v==null?'':v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(';')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'})); a.download=name; a.click();
+}
+const dec=v=>String(Math.round(v*100)/100).replace('.',',');
+const period=()=>($('dFrom').value||'debut')+'_'+($('dTo').value||'fin');
+$('btnCsvPaie').addEventListener('click',()=>{
+  if(!last.G.length){alert('Aucune donnée.');return;}
+  const r=paieRows(), price=String(last.price).replace('.',',');
+  let rows;
+  if(paieView==='trieur'){
+    rows=[['Trieur','Jours','1er colis','Dernier colis','Colis triés','dont adresse','Doublons non payés','Erreurs','Inventaire','Ajustements','Colis payés','Prix unitaire (€)','Pénalités (€)','Montant (€)','Source','Jours payés sur Supabase']];
+    r.forEach(x=>rows.push([x.trieur,x.jours.size,x.first?fmtD(x.firstD)+' '+fmtHs(x.first):'',x.last?fmtD(x.lastD)+' '+fmtHs(x.last):'',x.tries,x.nbAddr,x.dupLost,x.nbErr,x.inv,x.adj,x.paid,price,dec(x.pen),dec(x.amount),srcLabel(x.srcs),x.sbN]));
+  }else if(paieView==='detail'){
+    rows=[['Trieur','Date','1er colis','Dernier colis','Durée','Cadence (colis/h)','Colis triés','dont adresse','dont hors liste','Doublons non payés','Erreurs','Inventaire','Ajustements','Colis payés','Prix unitaire (€)','Pénalités (€)','Montant (€)','Source']];
+    r.forEach(g=>rows.push([g.trieur,fmtD(g.date),fmtHs(g.first),fmtHs(g.last),fmtDur(g.last-g.first),g.cadence?Math.round(g.cadence):'',g.tries,g.nbAddr,g.unk,g.dupLost,g.nbErr,g.inv,g.adj,g.paid,price,dec(g.pen),dec(g.amount),g.src]));
+  }else{
+    rows=[['Date','Trieurs','1er colis','Dernier colis','Colis triés','Erreurs','Inventaire','Ajustements','Colis payés','Montant (€)','Source','Trieurs payés sur Supabase']];
+    r.forEach(x=>rows.push([fmtD(x.date),x.trieurs.size,fmtHs(x.first),fmtHs(x.last),x.tries,x.nbErr,x.inv,x.adj,x.paid,dec(x.amount),srcLabel(x.srcs),x.sbN]));
+  }
+  csv(rows,'remuneration_tri_'+paieView+'_'+period()+'.csv');
+});
+$('btnCsvScans').addEventListener('click',()=>{
+  const list=filteredItems(); if(!list.length){alert('Aucun colis.');return;}
+  const S={paye:'Payé',dup:'Doublon non payé',err:'Erreur de tri',inv:'Inventaire (non payé)',unpaid:'Non payé (option)'};
+  const rows=[['Date','Heure','Trieur','TN / adresse','Type','Statut','Erreur de tri','Remarque','Source']];
+  list.forEach(i=>rows.push([fmtD(i.g.date),i.t?fmtHs(i.t):'',i.g.trieur,i.code,KIND_LBL[i.kind],S[i.st],i.err?'oui':'',i.info,i.g.src]));
+  csv(rows,'scans_trieurs_'+period()+'.csv');
+});
+
+// ══════════════ SUPABASE : PSEUDO-FICHIERS ET CONTRÔLE DES JSON ══════════════
+// Les scans reçus par Supabase sont transformés en pseudo-fichiers (un par trieur et par date), de même forme
+// que les fichiers JSON importés. compute() n'est pas modifié : on choisit seulement quels fichiers lui présenter.
+const XPT_LIST=['XPT22','XPT23','XPT35'];
+const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
+const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';
+const SB_PAGE=1000;            // limite de lignes par requête
+const SB_KEY='remuTri_supabase';
+const sbc=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
+let sbUser=null, sbRows=[], sbFiles=[], sbPeriod=null, sbBusy=false, sbMsg='', sbTok=0;
+let sbPick={};                 // code de session → true/false : choix manuel (sinon : coché si le code est d'un XPT choisi)
+let ctrl=[], ctrlSel='';
+const isTestCode=c=>/^TEST/i.test(String(c||'').trim());
+
+$('sbXpts').innerHTML=XPT_LIST.map(x=>'<label class="chk" style="margin-top:0"><input type="checkbox" data-xpt="'+x+'" checked/> <span>'+x+'</span></label>').join('');
+try{
+  const s=JSON.parse(localStorage.getItem(SB_KEY)||'{}');
+  if(['ctrl','fill','merge'].includes(s.role)) $('sbRole').value=s.role;
+  if(Array.isArray(s.xpts)) $('sbXpts').querySelectorAll('[data-xpt]').forEach(c=>{c.checked=s.xpts.includes(c.dataset.xpt);});
+  if(s.pick&&typeof s.pick==='object') sbPick=s.pick;
+}catch(e){}
+const sbXpts=()=>[...$('sbXpts').querySelectorAll('[data-xpt]')].filter(c=>c.checked).map(c=>c.dataset.xpt);
+function saveSb(){try{localStorage.setItem(SB_KEY,JSON.stringify({role:$('sbRole').value,xpts:sbXpts(),pick:sbPick}));}catch(e){}}
+const codeInXpt=c=>sbXpts().some(x=>String(c).startsWith(x+'-'));
+const codeOn=c=>sbPick[c]!=null?!!sbPick[c]:codeInXpt(c);
+
+// ── Fichiers présentés à compute() selon le rôle donné à Supabase ──
+function paidFiles(){
+  const role=$('sbRole').value;
+  if(role==='merge') return files.concat(sbFiles);
+  if(role==='fill'){
+    const have=new Set(files.map(f=>f.tKey+'|'+f.date));
+    return files.concat(sbFiles.filter(f=>!have.has(f.tKey+'|'+f.date)));
+  }
+  return files;
+}
+function computeWith(list){const keep=files; files=list; try{return compute();}finally{files=keep;}}
+// Source de chaque ligne de paie (trieur + date) : JSON, Supabase ou les deux
+function tagSources(list){
+  const src={};
+  list.forEach(f=>{const k=f.tKey+'|'+f.date;(src[k]=src[k]||new Set()).add(f.sb?'Supabase':'JSON');});
+  last.G.forEach(g=>{g.src=srcLabel(src[g.k]);});
+}
+const srcLabel=set=>set&&set.size?[...set].sort().join(' + '):'';
+
+// ── Connexion ──
+$('sbLogin').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!sbc){$('sbLoginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';return;}
+  $('btnSbLogin').disabled=true; $('sbLoginErr').textContent='';
+  const {error}=await sbc.auth.signInWithPassword({email:$('sbEmail').value.trim(),password:$('sbPass').value});
+  $('btnSbLogin').disabled=false;
+  if(error) $('sbLoginErr').textContent=/invalid login/i.test(error.message)?'E-mail ou mot de passe incorrect.':'Connexion impossible : '+error.message;
+  else $('sbPass').value='';
+});
+$('sbLogout').addEventListener('click',e=>{e.preventDefault();sbc.auth.signOut();});
+if(sbc) sbc.auth.onAuthStateChange((ev,s)=>setTimeout(()=>{
+  const u=s&&s.user||null;
+  if((u&&u.id)===(sbUser&&sbUser.id)) return;   // simple renouvellement du jeton
+  sbUser=u; renderSb();
+},0));
+else $('sbLoginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';
+
+// ── Chargement paginé de la période (les codes TEST ne sont jamais lus) ──
+async function sbLoad(){
+  if(!sbUser||sbBusy) return;
+  const from=$('sbFrom').value, to=$('sbTo').value;
+  if(!from||!to||from>to){alert('Indiquez une période valide (du … au …).');return;}
+  if(!sbXpts().length){alert('Cochez au moins un XPT.');return;}
+  sbBusy=true; sbMsg='⏳ Lecture en cours…'; renderSb();
+  const tok=++sbTok, got=new Map();
+  let off=0, err='';
+  for(;;){
+    const {data,error}=await sbc.from('scans').select('id,session_code,work_date,trieur,kind,tn,adresse,scanned_at,received_at')
+      .gte('work_date',from).lte('work_date',to).not('session_code','ilike','TEST%')
+      .order('received_at').order('id').range(off,off+SB_PAGE-1);
+    if(tok!==sbTok) return;
+    if(error){err=error.message||String(error);break;}
+    data.forEach(r=>{
+      if(isTestCode(r.session_code)) return;
+      r._t=Date.parse(r.scanned_at)||Date.parse(r.received_at)||0;
+      got.set(r.id,r);
+    });
+    if(!data.length) break;
+    off+=data.length;
+    sbMsg='⏳ '+num(off)+' lignes lues…'; renderSb();
+  }
+  sbBusy=false;
+  if(err){sbMsg='⚠️ Lecture impossible : '+err; renderSb(); return;}
+  sbRows=[...got.values()]; sbPeriod={from,to}; sbMsg=''; ctrlSel='';
+  if(!$('dFrom').value&&!$('dTo').value){$('dFrom').value=from;$('dTo').value=to;}
+  buildSbFiles(); render();
+}
+$('btnSbLoad').addEventListener('click',e=>{e.preventDefault();sbLoad();});
+$('btnSbClear').addEventListener('click',()=>{sbTok++;sbBusy=false;sbRows=[];sbFiles=[];sbPeriod=null;sbMsg='';ctrlSel='';render();});
+
+// ── Lignes → pseudo-fichiers par trieur et par date ──
+// Fusion par TN : heure = premier scan ; hors liste dès qu'une ligne kind='hors' existe (la seconde ligne 'hors' ne fait que rattacher une tournée).
+// Lignes adr : la clé est l'id de la ligne, c'est-à-dire l'id écrit dans l'export JSON du trieur (pas de double compte si le JSON est aussi chargé).
+function buildSbFiles(){
+  const m=new Map();
+  sbRows.forEach(r=>{
+    if(!codeOn(r.session_code)) return;
+    const tKey=normName(r.trieur), date=r.work_date||localISO(new Date(r._t)), k=tKey+'|'+date;
+    let f=m.get(k);
+    if(!f){
+      f={key:'sb|'+k,sb:true,codes:new Set(),name:'',trieur:String(r.trieur||'(sans nom)').trim(),tKey,date,dateFromExport:false,exportedAt:'',
+        nbTN:0,tns:new Map(),unknown:new Set(),addr:new Map()};
+      m.set(k,f);
+    }
+    f.codes.add(r.session_code);
+    if(r.kind==='adr'){
+      const label=String(r.adresse||'').trim();
+      if(label) f.addr.set(r.id,{label,t:r._t});
+      return;
+    }
+    const c=normCode(r.tn); if(!c) return;
+    const o=f.tns.get(c);
+    if(o===undefined||(r._t&&(!o||r._t<o))) f.tns.set(c,r._t);
+    if(r.kind==='hors') f.unknown.add(c);
+  });
+  sbFiles=[...m.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.trieur.localeCompare(b.trieur,'fr'));
+  sbFiles.forEach(f=>{f.nbTN=f.tns.size;f.name='Supabase · '+[...f.codes].sort().join(', ');});
+}
+function sbRefilter(){saveSb();buildSbFiles();render();}
+$('sbXpts').addEventListener('change',sbRefilter);
+$('sbRole').addEventListener('change',()=>{saveSb();render();});
+$('sbCodes').addEventListener('change',e=>{
+  const c=e.target.dataset.code; if(c==null) return;
+  // on ne mémorise que les choix qui s'écartent de la règle « coché si le code est d'un XPT choisi »
+  if(e.target.checked===codeInXpt(c)) delete sbPick[c]; else sbPick[c]=e.target.checked;
+  sbRefilter();
+});
+
+function renderSb(){
+  $('sbLogin').style.display=sbUser?'none':'';
+  $('sbApp').style.display=sbUser?'':'none';
+  $('sbMail').textContent=sbUser?sbUser.email:'';
+  if(!$('sbFrom').value) $('sbFrom').value=$('dFrom').value||localISO(new Date());
+  if(!$('sbTo').value) $('sbTo').value=$('dTo').value||localISO(new Date());
+  $('btnSbLoad').disabled=sbBusy;
+  $('btnSbClear').style.display=sbPeriod?'':'none';
+  $('sbStatus').innerHTML=sbMsg?'<span class="'+(sbMsg[0]==='⏳'?'muted':'neg')+'">'+esc(sbMsg)+'</span>':'';
+  if(!sbPeriod){$('sbCodes').innerHTML='';$('sbSummary').innerHTML='';return;}
+  // codes de session trouvés sur la période
+  const codes=new Map();
+  sbRows.forEach(r=>{
+    let x=codes.get(r.session_code); if(!x){x={code:r.session_code,n:0,trieurs:new Set(),dates:new Set()};codes.set(r.session_code,x);}
+    x.n++; x.trieurs.add(normName(r.trieur)); x.dates.add(r.work_date);
+  });
+  const list=[...codes.values()].sort((a,b)=>String(a.code).localeCompare(String(b.code),'fr',{numeric:true}));
+  $('sbCodes').innerHTML='<label class="f">Codes de session du '+fmtD(sbPeriod.from)+' au '+fmtD(sbPeriod.to)+' <span style="font-weight:400">(décochez pour exclure)</span></label>'+
+    (list.length?list.map(x=>'<label class="sbcode"><input type="checkbox" data-code="'+esc(x.code)+'"'+(codeOn(x.code)?' checked':'')+'/> <span><b>'+esc(x.code)+'</b>'+
+      (codeInXpt(x.code)?'':'<span class="tag err">hors XPT choisis</span>')+
+      '<br/><span class="muted">'+num(x.n)+' ligne'+(x.n>1?'s':'')+' · '+x.trieurs.size+' trieur'+(x.trieurs.size>1?'s':'')+(x.dates.size>1?' · '+x.dates.size+' dates':'')+'</span></span></label>').join('')
+      :'<div class="muted" style="font-size:12px">Aucun scan sur cette période (codes TEST ignorés).</div>');
+  // pseudo-fichiers
+  const paid=new Set(paidFiles().filter(f=>f.sb).map(f=>f.key));
+  const role=$('sbRole').value;
+  $('sbSummary').innerHTML=!sbFiles.length?'':
+    '<div style="font-size:12px;margin-top:10px"><b>'+sbFiles.length+'</b> pseudo-fichier'+(sbFiles.length>1?'s':'')+' (trieur × jour) · '+
+      (role==='ctrl'?'<span class="muted">contrôle seulement, aucun dans la paie</span>':'<b>'+paid.size+'</b> utilisé'+(paid.size>1?'s':'')+' pour la paie')+'</div>'+
+    '<details class="sbd"><summary>Voir les pseudo-fichiers</summary>'+
+    sbFiles.map(f=>'<div class="file sb'+(paid.has(f.key)?'':' off')+'">☁ <b>'+esc(f.trieur)+'</b> · 📅 '+fmtD(f.date)+' · '+(f.tns.size+f.addr.size)+' colis'+
+      (paid.has(f.key)?'<span class="tag sb">dans la paie</span>':'<span class="tag mut">contrôle</span>')+'<br/><span class="muted">'+esc([...f.codes].sort().join(', '))+'</span></div>').join('')+
+    '</details>';
+}
+
+// ── Contrôle : JSON et Supabase pour un même trieur et un même jour ──
+function computeCtrl(){
+  ctrl=[];
+  if(!sbPeriod) return;
+  const J=new Map();
+  files.forEach(f=>{
+    if(f.date<sbPeriod.from||f.date>sbPeriod.to) return;
+    const k=f.tKey+'|'+f.date;
+    let g=J.get(k); if(!g){g={trieur:f.trieur,date:f.date,tns:new Map(),addr:new Map()};J.set(k,g);}
+    f.tns.forEach((t,c)=>{const o=g.tns.get(c); if(o===undefined||(t&&(!o||t<o))) g.tns.set(c,t);});
+    f.addr.forEach((a,id)=>{if(!g.addr.has(id)) g.addr.set(id,a);});
+  });
+  const S=new Map(sbFiles.map(f=>[f.tKey+'|'+f.date,f]));
+  const only=(a,b)=>{
+    const out=[]; if(!a) return out;
+    a.tns.forEach((t,c)=>{if(!b||!b.tns.has(c)) out.push({kind:'TN',code:c,t});});
+    a.addr.forEach((x,id)=>{if(!b||!b.addr.has(id)) out.push({kind:'Adresse',code:x.label,t:x.t,old:String(id).indexOf('L:')===0});});
+    return out.sort((p,q)=>(p.t||0)-(q.t||0));
+  };
+  new Set([...J.keys(),...S.keys()]).forEach(k=>{
+    const j=J.get(k), s=S.get(k), ref=j||s;
+    const onlyJ=only(j,s), onlyS=only(s,j);
+    ctrl.push({k,trieur:ref.trieur,date:ref.date,nJ:j?j.tns.size+j.addr.size:null,nS:s?s.tns.size+s.addr.size:null,onlyJ,onlyS,
+      codes:s?[...s.codes].sort():[],st:!j?'nojson':!s?'nosb':(onlyJ.length||onlyS.length)?'diff':'ok'});
+  });
+  ctrl.sort((a,b)=>a.date.localeCompare(b.date)||a.trieur.localeCompare(b.trieur,'fr'));
+}
+const CTRL_LBL={ok:'<span class="tag ok">Identique</span>',diff:'<span class="tag err">Écart</span>',nojson:'<span class="tag">JSON manquant</span>',nosb:'<span class="tag err">Absent de Supabase</span>'};
+const CTRL_TXT={ok:'Identique',diff:'Écart',nojson:'JSON manquant',nosb:'Absent de Supabase'};
+const ctrlList=()=>ctrl.filter(c=>$('cFilter').value!=='diff'||c.st!=='ok');
+function renderCtrl(){
+  computeCtrl();
+  const el=$('tCtrl'), bad=ctrl.filter(c=>c.st!=='ok').length;
+  $('cCtrl').innerHTML=sbPeriod?(bad?'<span class="tag err">'+bad+'</span>':'<span class="tag ok">✓</span>'):'';
+  if(!sbPeriod){
+    $('ctrlCount').textContent=''; $('ctrlDetail').innerHTML='';
+    el.innerHTML='<div class="empty">Connectez-vous et chargez une période dans le panneau « ☁ Charger depuis Supabase »<br/>pour comparer les JSON des trieurs aux scans reçus par le serveur.</div>';
+    return;
+  }
+  const list=ctrlList(), n=v=>v==null?'<span class="muted">—</span>':num(v);
+  $('ctrlCount').textContent='Période du '+fmtD(sbPeriod.from)+' au '+fmtD(sbPeriod.to)+' · '+ctrl.length+' trieur(s) × jour(s) · '+bad+' avec écart';
+  el.innerHTML=list.length?'<table><thead><tr><th>Date</th><th>Trieur</th><th class="n">Colis<br/>JSON</th><th class="n">Colis<br/>Supabase</th><th class="n">Différence</th><th class="n">Seulement<br/>dans le JSON</th><th class="n">Seulement<br/>dans Supabase</th><th>Résultat</th><th>Codes de session</th></tr></thead><tbody>'+
+    list.map(c=>{
+      const d=(c.nJ==null||c.nS==null)?null:c.nS-c.nJ;
+      return '<tr class="click'+(c.k===ctrlSel?' sel':'')+'" data-k="'+esc(c.k)+'"><td>'+fmtD(c.date)+'</td><td><b>'+esc(c.trieur)+'</b></td><td class="n">'+n(c.nJ)+'</td><td class="n">'+n(c.nS)+'</td>'+
+        '<td class="n">'+(d==null?'<span class="muted">—</span>':d?'<span class="neg">'+(d>0?'+':'')+num(d)+'</span>':'0')+'</td>'+
+        '<td class="n">'+(c.onlyJ.length?'<span class="neg">'+num(c.onlyJ.length)+'</span>':'0')+'</td><td class="n">'+(c.onlyS.length?'<span class="neg">'+num(c.onlyS.length)+'</span>':'0')+'</td>'+
+        '<td>'+CTRL_LBL[c.st]+'</td><td class="muted" style="font-size:12px">'+esc(c.codes.join(', '))+'</td></tr>';
+    }).join('')+'</tbody></table>':'<div class="empty">'+(ctrl.length?'✅ Aucun écart entre les JSON et Supabase.':'Aucun JSON ni scan Supabase sur cette période.')+'</div>';
+  renderCtrlDetail();
+}
+function renderCtrlDetail(){
+  const c=ctrl.find(x=>x.k===ctrlSel), el=$('ctrlDetail');
+  if(!c){el.innerHTML='';return;}
+  const MAX=500;
+  const tbl=(list,side)=>list.length?'<div class="tbl"><table><thead><tr><th>Heure</th><th>Type</th><th>TN / adresse</th></tr></thead><tbody>'+
+    list.slice(0,MAX).map(x=>'<tr><td>'+fmtHs(x.t)+'</td><td>'+x.kind+'</td><td class="wr" style="font-family:Courier New,monospace">'+esc(x.code)+(x.old?'<span class="tag mut" title="Ancien export sans identifiant d\'adresse : rapprochement impossible">ancien export</span>':'')+'</td></tr>').join('')+
+    '</tbody></table></div>'+(list.length>MAX?'<div class="note">Affichage des '+MAX+' premiers sur '+num(list.length)+' (le CSV contient tout).</div>':'')
+    :'<div class="muted" style="font-size:13px">Aucun colis seulement dans '+side+'.</div>';
+  el.innerHTML='<div class="panel"><h3>'+esc(c.trieur)+' — '+fmtD(c.date)+' '+CTRL_LBL[c.st]+'</h3>'+
+    '<div class="grid2"><div><h2>Seulement dans le JSON ('+num(c.onlyJ.length)+')</h2>'+(c.nJ==null?'<div class="muted" style="font-size:13px">Aucun JSON chargé pour ce trieur ce jour-là.</div>':tbl(c.onlyJ,'le JSON'))+'</div>'+
+    '<div><h2>Seulement dans Supabase ('+num(c.onlyS.length)+')</h2>'+(c.nS==null?'<div class="muted" style="font-size:13px">Aucun scan reçu par Supabase pour ce trieur ce jour-là (codes cochés).</div>':tbl(c.onlyS,'Supabase'))+'</div></div></div>';
+}
+$('tCtrl').addEventListener('click',e=>{
+  const tr=e.target.closest('tr[data-k]'); if(!tr) return;
+  ctrlSel=ctrlSel===tr.dataset.k?'':tr.dataset.k;
+  renderCtrl();
+});
+$('cFilter').addEventListener('change',renderCtrl);
+$('btnCsvCtrl').addEventListener('click',()=>{
+  const list=ctrlList(); if(!list.length){alert('Aucune ligne.');return;}
+  const rows=[['Date','Trieur','Colis JSON','Colis Supabase','Seulement dans le JSON','Seulement dans Supabase','Résultat','Codes de session']];
+  list.forEach(c=>rows.push([fmtD(c.date),c.trieur,c.nJ==null?'':c.nJ,c.nS==null?'':c.nS,c.onlyJ.length,c.onlyS.length,CTRL_TXT[c.st],c.codes.join(', ')]));
+  csv(rows,'controle_supabase_'+sbPeriod.from+'_'+sbPeriod.to+'.csv');
+});
+$('btnCsvCtrlTn').addEventListener('click',()=>{
+  const rows=[['Date','Trieur','Présent seulement dans','Type','TN / adresse','Heure','Résultat']];
+  ctrlList().forEach(c=>{
+    c.onlyJ.forEach(x=>rows.push([fmtD(c.date),c.trieur,'JSON',x.kind,x.code,x.t?fmtHs(x.t):'',CTRL_TXT[c.st]]));
+    c.onlyS.forEach(x=>rows.push([fmtD(c.date),c.trieur,'Supabase',x.kind,x.code,x.t?fmtHs(x.t):'',CTRL_TXT[c.st]]));
+  });
+  if(rows.length<2){alert('Aucun colis en écart.');return;}
+  csv(rows,'controle_supabase_colis_'+sbPeriod.from+'_'+sbPeriod.to+'.csv');
+});
+
+// ── Onglets ──
+document.querySelectorAll('#mainTabs .btn').forEach(b=>b.addEventListener('click',()=>{
+  mainTab=b.dataset.t;
+  document.querySelectorAll('#mainTabs .btn').forEach(x=>x.classList.toggle('on',x===b));
+  ['paie','scans','graph','corr','ctrl'].forEach(t=>$('t-'+t).style.display=t===mainTab?'':'none');
+  if(mainTab==='graph') renderGraph();
+}));
+document.querySelectorAll('#paieTabs .btn[data-v]').forEach(b=>b.addEventListener('click',()=>{
+  paieView=b.dataset.v;
+  document.querySelectorAll('#paieTabs .btn[data-v]').forEach(x=>x.classList.toggle('on',x===b));
+  renderPaie();
+}));
+['price','penalty','dFrom','dTo'].forEach(id=>$(id).addEventListener('input',()=>{saveParams();render();}));
+['dupMode','inclUnknown','inclAddr','errUnpaid'].forEach(id=>$(id).addEventListener('change',()=>{saveParams();render();}));
+
+render();
+</script>
+</body>
+</html>
