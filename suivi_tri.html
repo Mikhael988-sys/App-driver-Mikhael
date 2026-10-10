@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Suivi du tri en direct</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2330;--border:rgba(255,255,255,.1);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#3fb950;--err:#f85149;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.45}
+header{background:var(--surf);border-bottom:2px solid var(--accent);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:19px;font-weight:800;flex:1;min-width:200px}
+.pill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--ok)}.pill.wait{color:var(--accent);border-color:var(--accent)}.pill.err{color:var(--err);border-color:var(--err)}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 16px 40px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px}
+@media(max-width:950px){.wrap{grid-template-columns:1fr}}
+.panel{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+.panel h3{font-size:15px;font-weight:800;margin-bottom:8px}
+.drop{border:2px dashed var(--border);border-radius:10px;padding:16px 12px;text-align:center;color:var(--muted);cursor:pointer;transition:all .15s}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--fg);background:rgba(240,180,41,.05)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit}
+.btn:hover{border-color:rgba(255,255,255,.25)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
+.btn.danger{color:var(--err);border-color:var(--err);background:rgba(248,81,73,.1)}
+.btn.sm{padding:4px 8px;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:10px 0 4px}
+input[type=date],input[type=text],input[type=email],input[type=password],input[type=search],select{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;color-scheme:dark;font-family:inherit}
+.row2{display:flex;gap:8px}.row2>*{flex:1;min-width:0}
+.muted{color:var(--muted)}
+.mono{font-family:'Courier New',monospace}
+.code{font-family:'Courier New',monospace;font-weight:800;font-size:17px;color:var(--accent);margin-top:10px;word-break:break-all}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}
+.kpi{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi .v{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.kpi.acc .v{color:var(--accent)}
+.kpi.off{opacity:.4}.kpi.off .v{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 7px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:bottom}
+td{padding:7px;border-bottom:1px solid var(--border);white-space:nowrap}
+td.n,th.n{text-align:right}
+td.wr{white-space:normal}
+tr.alert td{background:rgba(248,81,73,.08)}
+tr.tot td{font-weight:900;border-top:2px solid var(--accent);color:var(--accent)}
+tr.dim td{color:var(--muted)}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(240,180,41,.15);color:var(--accent);margin-left:4px}
+.tag.err{background:rgba(248,81,73,.15);color:var(--err)}
+.tag.ok{background:rgba(63,185,80,.15);color:var(--ok)}
+.tag.mut{background:rgba(255,255,255,.08);color:var(--muted)}
+.tag.big{font-size:12px;padding:3px 8px;margin-left:0}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs .btn.on{border-color:var(--accent);color:var(--accent);background:rgba(240,180,41,.08)}
+.maintabs{border-bottom:1px solid var(--border);padding-bottom:12px}
+.maintabs .btn{font-size:14px;padding:10px 14px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.filters>div{min-width:150px;flex:1}
+.filters label{font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:3px}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+.banner{border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:15px;font-weight:800;line-height:1.4;border:2px solid var(--accent);background:rgba(240,180,41,.12);color:var(--accent)}
+.banner.err{border-color:var(--err);background:rgba(248,81,73,.12);color:var(--err)}
+.banner small{display:block;font-size:12px;font-weight:600;opacity:.85;margin-top:2px}
+.bar{height:10px;background:var(--surf2);border-radius:5px;overflow:hidden;min-width:140px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.bar.full>i{background:var(--ok)}
+.chips{display:flex;flex-direction:column;gap:6px}
+.chip{border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:var(--surf2);cursor:pointer;font-size:12px}
+.chip:hover{border-color:rgba(255,255,255,.25)}
+.chip.on{border-color:var(--accent)}
+.chip.odd{border-color:var(--err)}
+.chip b{font-family:'Courier New',monospace;font-size:13px}
+.qr-box{background:#fff;border-radius:12px;padding:8px;display:flex;align-items:center;justify-content:center;cursor:zoom-in}
+.qr-box canvas{width:100%;height:auto;image-rendering:pixelated;display:block}
+.qr-link{font-size:11px;color:var(--muted);word-break:break-all;margin:8px 0}
+#qrFull{display:none;position:fixed;inset:0;background:#fff;z-index:4000;align-items:center;justify-content:center;flex-direction:column;padding:12px;cursor:zoom-out}
+#qrFull canvas{width:min(80vw,80vh);height:auto;image-rendering:pixelated}
+#qrFullLbl{color:#000;font-weight:900;font-size:28px;margin-top:14px;font-family:'Courier New',monospace}
+/* connexion */
+#login{max-width:380px;margin:9vh auto;padding:0 16px}
+#loginErr{color:var(--err);font-weight:700;font-size:13px;margin-top:10px;min-height:18px}
+/* graphique */
+.chart-wrap{position:relative}
+.chart-wrap svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:4px 0 10px;font-size:13px}
+.legend label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg)}
+.legend .sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend label.off{color:var(--muted)}
+.legend label.off .sw{opacity:.3}
+#tip{position:absolute;pointer-events:none;background:#0d1117;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-size:12px;display:none;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:5}
+#tip .t{font-weight:800;margin-bottom:4px}
+#tip .r{display:flex;align-items:center;gap:6px}
+#tip .r b{margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<header>
+  <h1>📡 Suivi du tri en direct</h1>
+  <span class="pill" id="pRt" style="display:none"></span>
+  <span class="pill" id="pSync" style="display:none"></span>
+  <button class="btn" id="btnReload" style="display:none" title="Recharger toutes les lignes de la session">🔄 Recharger</button>
+  <span class="muted" id="userMail" style="font-size:12px"></span>
+  <button class="btn" id="btnLogout" style="display:none">Déconnexion</button>
+</header>
+
+<!-- ══ CONNEXION ══ -->
+<div id="login">
+  <form class="panel" id="loginForm">
+    <h3>🔒 Connexion</h3>
+    <label class="f" for="lEmail">E-mail</label>
+    <input type="email" id="lEmail" autocomplete="username" required/>
+    <label class="f" for="lPass">Mot de passe</label>
+    <input type="password" id="lPass" autocomplete="current-password" required/>
+    <button class="btn primary" id="btnLogin" type="submit" style="margin-top:14px;width:100%;justify-content:center">Se connecter</button>
+    <div id="loginErr"></div>
+  </form>
+</div>
+
+<!-- ══ SUIVI ══ -->
+<div class="wrap" id="app" style="display:none">
+  <div class="side">
+    <div class="panel">
+      <h2>Session de tri</h2>
+      <div class="row2">
+        <div><label class="f" style="margin-top:0" for="xpt">XPT</label><select id="xpt"></select></div>
+        <div><label class="f" style="margin-top:0" for="date">Date du tri</label><input type="date" id="date"/></div>
+      </div>
+      <div id="customWrap" style="display:none">
+        <label class="f" for="custom">Code de session personnalisé</label>
+        <input type="text" id="custom" class="mono" placeholder="ex : TEST-CLAUDE" autocomplete="off" spellcheck="false"/>
+      </div>
+      <div class="code" id="codeLbl">—</div>
+    </div>
+
+    <div class="panel">
+      <h2>Codes vus ce jour-là</h2>
+      <div class="chips" id="dayCodes"><div class="muted" style="font-size:12px">…</div></div>
+      <div class="note">Tous les codes de session reçus pour cette date de tri (hors codes TEST). Un code inhabituel signale une session mal saisie : cliquez dessus pour l'ouvrir.</div>
+    </div>
+
+    <div class="panel">
+      <h2>JSON des tournées</h2>
+      <input type="file" id="jsonInput" accept=".json" multiple style="display:none"/>
+      <div class="drop" id="drop">📂 Glissez ici le JSON des tournées<br/><span style="font-size:12px">ou cliquez pour le choisir</span></div>
+      <div id="toursInfo" style="margin-top:10px;font-size:13px"></div>
+      <button class="btn danger sm" id="btnToursClear" style="margin-top:8px;display:none">🗑 Retirer le JSON</button>
+    </div>
+
+    <div class="panel">
+      <h2>QR code pour les trieurs</h2>
+      <div class="qr-box" id="qrBox" title="Cliquer pour afficher en plein écran"></div>
+      <div class="qr-link" id="qrLink"></div>
+      <div class="row2">
+        <button class="btn sm" id="btnQrFull">⛶ Plein écran</button>
+        <button class="btn sm" id="btnQrCopy">📋 Copier le lien</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div id="banners"></div>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kTries">0</div><div class="l">Colis triés</div></div>
+      <div class="kpi" id="kpAtt"><div class="v" id="kAtt">—</div><div class="l">Attendus</div></div>
+      <div class="kpi acc" id="kpPct"><div class="v" id="kPct">—</div><div class="l">Avancement</div></div>
+      <div class="kpi" id="kpRest"><div class="v" id="kRest">—</div><div class="l">Jamais scannés</div></div>
+      <div class="kpi"><div class="v" id="kTrieurs">0</div><div class="l">Trieurs actifs</div></div>
+      <div class="kpi"><div class="v" id="kCad">0</div><div class="l">Cadence 15 min (colis/h)</div></div>
+    </div>
+
+    <div class="tabs maintabs" id="mainTabs">
+      <button class="btn on" data-t="trieurs">👤 Trieurs</button>
+      <button class="btn" data-t="tours">🗂 Tournées</button>
+      <button class="btn" data-t="hors">📍 Hors liste &amp; adresses <span id="cHors"></span></button>
+      <button class="btn" data-t="dup">👥 Doublons <span id="cDup"></span></button>
+      <button class="btn" data-t="rest">❓ Jamais scannés <span id="cRest"></span></button>
+      <button class="btn" data-t="graph">📈 Graphique</button>
+    </div>
+
+    <section id="t-trieurs">
+      <div class="panel"><div class="tbl" id="tTrieurs"></div></div>
+      <div class="note"><b>Colis triés</b> = TN distincts + colis saisis par adresse. <b>Cadence</b> = colis des 15 dernières minutes × 4. <b>Dernier scan</b> = heure du téléphone ; <b>dernière réception</b> = heure d'arrivée au serveur (un écart important = téléphone sans réseau). L'état « en pause / terminé » est gardé sur ce PC et s'annule tout seul si le trieur rescanne.</div>
+    </section>
+
+    <section id="t-tours" style="display:none">
+      <div class="panel"><div class="tbl" id="tTours"></div></div>
+    </section>
+
+    <section id="t-hors" style="display:none">
+      <div class="panel">
+        <div class="filters">
+          <div><label>Rechercher un TN, une adresse, un trieur</label><input type="search" id="hSearch"/></div>
+          <div style="flex:0;min-width:auto"><button class="btn" id="btnCsvHors">⬇ CSV</button></div>
+        </div>
+        <div class="tbl" id="tHors"></div>
+      </div>
+    </section>
+
+    <section id="t-dup" style="display:none">
+      <div class="panel"><div class="tbl" id="tDup"></div></div>
+    </section>
+
+    <section id="t-rest" style="display:none">
+      <div class="panel">
+        <div class="filters">
+          <div><label>Tournée</label><select id="rTour"></select></div>
+          <div style="flex:0;min-width:auto"><button class="btn" id="btnCsvRest">⬇ CSV</button></div>
+        </div>
+        <div class="muted" id="restCount" style="font-size:12px;margin-bottom:6px"></div>
+        <div class="tbl" id="tRest"></div>
+      </div>
+    </section>
+
+    <section id="t-graph" style="display:none">
+      <div class="panel">
+        <div class="filters">
+          <div><label>Affichage</label><select id="gMode">
+            <option value="cumul">Cumul des colis scannés</option>
+            <option value="q15">Colis scannés par quart d'heure</option>
+          </select></div>
+        </div>
+        <h3 id="gTitle"></h3>
+        <div class="legend" id="gLegend"></div>
+        <div class="chart-wrap" id="gWrap"><div id="tip"></div></div>
+        <div class="note">Mis à jour en direct. Survolez le graphique pour lire les valeurs. Cliquez sur un trieur dans la légende pour l'afficher ou le masquer.</div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="qrFull"><div id="qrFullBox"></div><div id="qrFullLbl"></div></div>
+
+<script>
+// ══════════════ CONFIGURATION ══════════════
+const XPT_LIST=['XPT22','XPT23','XPT35'];
+const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
+const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';
+const MOBILE_URL='https://mikhael988-sys.github.io/App-driver-Mikhael/mobile_driverSadek_v11.html';
+const PAGE=1000;               // limite de lignes par requête
+const ALERT_MS=10*60000;       // alerte si aucun scan depuis 10 min
+const Q15=15*60000;
+const CATCHUP_MS=60000;        // rattrapage périodique sur received_at
+const OVERLAP_MS=2*60000;      // recouvrement du rattrapage
+const LIVE_MS=2*3600000;       // au-delà sans réception : session considérée terminée (plus d'alertes)
+const CUSTOM='__custom';
+
+// ══════════════ UTILITAIRES ══════════════
+const $=id=>document.getElementById(id);
+const num=v=>v.toLocaleString('fr-FR');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const normCode=s=>String(s||'').replace(/[​﻿\xa0\r\n\t]/g,'').trim().replace(/\s+/g,'').toUpperCase();
+const normName=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().replace(/\s+/g,' ').toLowerCase();
+const fmtD=iso=>{if(!iso) return '?';const a=iso.split('-');return a[2]+'/'+a[1]+'/'+a[0];};
+const pad=n=>String(n).padStart(2,'0');
+const fmtH=ms=>{if(!ms) return '—';const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes());};
+const fmtHs=ms=>{if(!ms) return '—';const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());};
+const fmtAgo=ms=>{const m=Math.floor(ms/60000);return m<60?m+' min':Math.floor(m/60)+' h '+pad(m%60);};
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+const mkCode=(xpt,date)=>(xpt&&date)?xpt+'-'+date.replace(/-/g,''):'';
+const isTest=c=>/^TEST/i.test(c||'');
+const natCmp=(a,b)=>String(a).localeCompare(String(b),'fr',{numeric:true});
+const SERIES=['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'].map(v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+function lsGet(k,def){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?def:v;}catch(e){return def;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+
+// ══════════════ ÉTAT ══════════════
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
+let user=null;
+let code='';                    // code de session affiché
+let rows=new Map();             // id → ligne de public.scans (+ _t = scanned_at ms, _r = received_at ms)
+let maxRecv=0;                  // plus grand received_at déjà reçu
+let loadTok=0, loading=false, busy=false, loadErr='', lastSync=0;
+let chan=null, rtState='';
+let expected=new Map();         // TN → {tour,pos,adr} (JSON des tournées)
+let tourFiles=[];
+let pauses={};                  // tKey → {s:'pause'|'fini', at}
+let dayCodes=[], dayTok=0, dayErr='';
+let tab='trieurs', hidden=new Set(), last=null;
+
+// ══════════════ CONNEXION ══════════════
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!sb){$('loginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';return;}
+  $('btnLogin').disabled=true; $('loginErr').textContent='';
+  const {error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});
+  $('btnLogin').disabled=false;
+  if(error) $('loginErr').textContent=/invalid login/i.test(error.message)?'E-mail ou mot de passe incorrect.':'Connexion impossible : '+error.message;
+  else $('lPass').value='';
+});
+$('btnLogout').addEventListener('click',()=>sb.auth.signOut());
+function onAuth(sess){
+  const u=sess&&sess.user||null;
+  if((u&&u.id)===(user&&user.id)) return;   // simple renouvellement du jeton
+  user=u;
+  $('login').style.display=u?'none':'';
+  $('app').style.display=u?'':'none';
+  ['btnLogout','btnReload','pRt','pSync'].forEach(id=>$(id).style.display=u?'':'none');
+  $('userMail').textContent=u?u.email:'';
+  if(u) openSession();
+  else{ stopChannel(); rows.clear(); code=''; }
+}
+if(sb) sb.auth.onAuthStateChange((ev,sess)=>setTimeout(()=>onAuth(sess),0));
+else $('loginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';
+
+// ══════════════ CHOIX DE LA SESSION ══════════════
+(function initPick(){
+  const p=lsGet('suiviTri_pick',{});
+  $('xpt').innerHTML=XPT_LIST.map(x=>'<option value="'+x+'">'+x+'</option>').join('')+'<option value="'+CUSTOM+'">Code personnalisé…</option>';
+  if(p.xpt&&(XPT_LIST.includes(p.xpt)||p.xpt===CUSTOM)) $('xpt').value=p.xpt;
+  $('custom').value=p.custom||'';
+  $('date').value=todayISO();
+  $('customWrap').style.display=$('xpt').value===CUSTOM?'':'none';
+})();
+function currentCode(){
+  return $('xpt').value===CUSTOM?$('custom').value.trim():mkCode($('xpt').value,$('date').value);
+}
+function pickChanged(){
+  $('customWrap').style.display=$('xpt').value===CUSTOM?'':'none';
+  lsSet('suiviTri_pick',{xpt:$('xpt').value,custom:$('custom').value.trim()});
+  openSession();
+}
+$('xpt').addEventListener('change',pickChanged);
+$('date').addEventListener('change',pickChanged);
+$('custom').addEventListener('change',pickChanged);
+$('btnReload').addEventListener('click',openSession);
+
+async function openSession(){
+  if(!user) return;
+  code=currentCode();
+  const tok=++loadTok;
+  rows.clear(); maxRecv=0; loadErr=''; lastSync=0; hidden=new Set();
+  pauses=lsGet('suiviTri_pause_'+code,{});
+  loadTours();
+  $('codeLbl').innerHTML=code?esc(code)+(isTest(code)?'<span class="tag err">TEST</span>':''):'—';
+  renderQR();
+  loadDayCodes();
+  if(!code){stopChannel();render();return;}
+  loading=true; render();
+  subscribe();
+  await fetchRows(0,tok);
+  if(tok!==loadTok) return;
+  loading=false; lastSync=Date.now();
+  render();
+}
+
+// ══════════════ CHARGEMENT, TEMPS RÉEL, RATTRAPAGE ══════════════
+function addRow(r){
+  if(!r||!r.id||rows.has(r.id)||r.session_code!==code) return false;
+  r._r=Date.parse(r.received_at)||0;
+  r._t=Date.parse(r.scanned_at)||r._r;
+  rows.set(r.id,r);
+  if(r._r>maxRecv) maxRecv=r._r;
+  return true;
+}
+// Lecture paginée (1 000 lignes par requête) ; since = ne lire que les lignes reçues depuis cette heure
+async function fetchRows(since,tok){
+  let from=0, n=0;
+  const c=code;
+  for(;;){
+    let q=sb.from('scans').select('*').eq('session_code',c);
+    if(since) q=q.gte('received_at',new Date(since).toISOString());
+    const {data,error}=await q.order('received_at').order('id').range(from,from+PAGE-1);
+    if(tok!==loadTok) return -1;
+    if(error){loadErr=error.message||String(error);return -1;}
+    data.forEach(r=>{if(addRow(r)) n++;});
+    if(!data.length) break;
+    from+=data.length;
+  }
+  loadErr='';
+  return n;
+}
+// Le Realtime ne rejoue pas les scans arrivés pendant une coupure ou une veille : on relit ce qui a été reçu récemment
+async function catchUp(){
+  if(!user||!code||loading||busy) return;
+  busy=true;
+  try{
+    const n=await fetchRows(maxRecv?maxRecv-OVERLAP_MS:0,loadTok);
+    if(n>=0) lastSync=Date.now();
+    if(n) schedule(); else renderStatus();
+  }finally{busy=false;}
+}
+function stopChannel(){ if(chan){try{sb.removeChannel(chan);}catch(e){} chan=null;} rtState=''; }
+function subscribe(){
+  stopChannel();
+  const c=code;
+  chan=sb.channel('scans-'+c+'-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'scans',filter:'session_code=eq.'+c},p=>{
+      if(c===code&&addRow(p.new)) schedule();
+    })
+    .subscribe(st=>{
+      if(c!==code) return;
+      rtState=st; renderStatus();
+      if(st==='SUBSCRIBED') catchUp();   // (re)connexion : on rattrape ce qui a pu manquer
+    });
+}
+setInterval(()=>{
+  if(!user||!code) return;
+  if(rtState!=='SUBSCRIBED'&&!loading) subscribe();
+  catchUp();
+},CATCHUP_MS);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') catchUp();});
+window.addEventListener('online',catchUp);
+// Horloge : rafraîchit cadences et alertes, et détecte une sortie de veille du PC
+let lastTick=Date.now();
+setInterval(()=>{
+  const now=Date.now(), slept=now-lastTick>60000;
+  lastTick=now;
+  if(!user||!code) return;
+  if(slept){subscribe();catchUp();}
+  schedule();
+},20000);
+setInterval(()=>{if(user) loadDayCodes();},5*60000);
+
+// ── Codes de session vus pour la date choisie ──
+async function loadDayCodes(){
+  const d=$('date').value;
+  if(!user||!d) return;
+  const tok=++dayTok, m=new Map();
+  let from=0; dayErr='';
+  for(;;){
+    const {data,error}=await sb.from('scans').select('session_code,trieur').eq('work_date',d).order('received_at').order('id').range(from,from+PAGE-1);
+    if(tok!==dayTok) return;
+    if(error){dayErr=error.message||String(error);break;}
+    data.forEach(r=>{
+      let x=m.get(r.session_code); if(!x){x={code:r.session_code,n:0,trieurs:new Set()};m.set(r.session_code,x);}
+      x.n++; x.trieurs.add(normName(r.trieur));
+    });
+    if(!data.length) break;
+    from+=data.length;
+  }
+  dayCodes=[...m.values()].filter(x=>!isTest(x.code)).sort((a,b)=>natCmp(a.code,b.code));
+  renderDayCodes();
+}
+function renderDayCodes(){
+  const d=$('date').value, std=XPT_LIST.map(x=>mkCode(x,d));
+  $('dayCodes').innerHTML=dayErr?'<div class="tag err big">Lecture impossible : '+esc(dayErr)+'</div>':
+    dayCodes.length?dayCodes.map(x=>{
+      const odd=!std.includes(x.code);
+      return '<div class="chip'+(x.code===code?' on':'')+(odd?' odd':'')+'" data-c="'+esc(x.code)+'"><b>'+esc(x.code)+'</b>'+(odd?'<span class="tag err">⚠ inhabituel</span>':'')+
+        '<div class="muted">'+num(x.n)+' ligne'+(x.n>1?'s':'')+' · '+x.trieurs.size+' trieur'+(x.trieurs.size>1?'s':'')+'</div></div>';
+    }).join(''):'<div class="muted" style="font-size:12px">Aucun scan reçu pour le '+fmtD(d)+'.</div>';
+}
+$('dayCodes').addEventListener('click',e=>{
+  const el=e.target.closest('.chip'); if(!el) return;
+  const c=el.dataset.c, i=XPT_LIST.findIndex(x=>mkCode(x,$('date').value)===c);
+  if(i>=0) $('xpt').value=XPT_LIST[i];
+  else{$('xpt').value=CUSTOM;$('custom').value=c;}
+  pickChanged();
+});
+
+// ══════════════ JSON DES TOURNÉES (même format que l'appli mobile) ══════════════
+function parseTourPayload(raw){
+  if(Array.isArray(raw)) return raw.flatMap(parseTourPayload);
+  if(raw&&raw.colis&&raw.name) return [raw];
+  if(raw&&typeof raw==='object'){
+    const byTour={};
+    for(const[bc,v] of Object.entries(raw)){
+      if(!v||typeof v!=='object') continue;
+      const name=String(v.tournee||''); if(!name) continue;
+      if(!byTour[name]) byTour[name]={name,colis:[]};
+      byTour[name].colis.push({bc,pos:Number(v.position)||0,adr:v.adresse||v.adr||'',ville:v.ville||'',cp:v.cp||''});
+    }
+    Object.values(byTour).forEach(t=>t.colis.sort((a,b)=>a.pos-b.pos));
+    return Object.values(byTour);
+  }
+  return [];
+}
+function loadTours(){
+  const s=lsGet('suiviTri_tours_'+code,null);
+  expected=new Map(); tourFiles=[];
+  if(code&&s&&Array.isArray(s.list)){
+    s.list.forEach(x=>expected.set(x[0],{tour:x[1],pos:x[2],adr:x[3]}));
+    tourFiles=s.files||[];
+  }
+  renderToursInfo();
+}
+function saveTours(){
+  const ok=lsSet('suiviTri_tours_'+code,{files:tourFiles,list:[...expected.entries()].map(([tn,v])=>[tn,v.tour,v.pos,v.adr])});
+  if(!ok) alert('JSON chargé, mais trop volumineux pour être mémorisé : il faudra le recharger à la prochaine ouverture de la page.');
+}
+async function importTours(files){
+  if(!code){alert('Choisissez d\'abord une session.');return;}
+  let bad=0, nb=0;
+  for(const f of files){
+    let raw; try{raw=JSON.parse(await f.text());}catch(e){bad++;continue;}
+    const tours=parseTourPayload(raw);
+    if(!tours.length){bad++;continue;}
+    tours.forEach(t=>{
+      const name=String(t.name);
+      // une tournée rechargée remplace la précédente
+      [...expected.entries()].forEach(([tn,v])=>{if(v.tour===name) expected.delete(tn);});
+      (t.colis||[]).forEach((c,i)=>{
+        const tn=normCode(c.bc); if(!tn) return;
+        expected.set(tn,{tour:name,pos:c.pos||(i+1),adr:[c.adr,c.cp,c.ville].filter(Boolean).join(' ')});
+      });
+      nb++;
+    });
+    if(!tourFiles.includes(f.name)) tourFiles.push(f.name);
+  }
+  saveTours(); renderToursInfo(); render();
+  if(bad) alert(bad+' fichier(s) ignoré(s) : JSON invalide ou sans tournée.');
+}
+function renderToursInfo(){
+  const tours=new Set([...expected.values()].map(v=>v.tour));
+  $('btnToursClear').style.display=expected.size?'':'none';
+  $('toursInfo').innerHTML=expected.size
+    ?'✅ <b>'+tours.size+'</b> tournée'+(tours.size>1?'s':'')+' · <b>'+num(expected.size)+'</b> colis attendus<div class="muted" style="font-size:12px">'+tourFiles.map(esc).join('<br/>')+'</div><div class="muted" style="font-size:12px">Mémorisé pour la session '+esc(code)+'</div>'
+    :'<span class="muted">Aucun JSON chargé pour cette session.</span>';
+}
+$('drop').addEventListener('click',()=>$('jsonInput').click());
+$('jsonInput').addEventListener('change',e=>{importTours(Array.from(e.target.files));e.target.value='';});
+['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over');}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop',e=>importTours(Array.from(e.dataTransfer.files)));
+$('btnToursClear').addEventListener('click',()=>{
+  if(!confirm('Retirer le JSON des tournées de la session '+code+' ?')) return;
+  expected=new Map(); tourFiles=[];
+  try{localStorage.removeItem('suiviTri_tours_'+code);}catch(e){}
+  renderToursInfo(); render();
+});
+
+// ══════════════ QR CODE DU LIEN DE SESSION ══════════════
+const sessionLink=()=>MOBILE_URL+'?session='+encodeURIComponent(code);
+function drawQR(text,target){
+  const qr=qrcode(0,'M');
+  qr.addData(text,'Byte'); qr.make();
+  const n=qr.getModuleCount(), margin=4, cell=8, size=(n+margin*2)*cell;
+  const cv=document.createElement('canvas'); cv.width=size; cv.height=size;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='#000';
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(qr.isDark(r,c)) ctx.fillRect((c+margin)*cell,(r+margin)*cell,cell,cell);
+  target.innerHTML=''; target.appendChild(cv);
+}
+function renderQR(){
+  const box=$('qrBox');
+  if(!code){box.innerHTML='<div style="color:#000;padding:20px">Choisissez une session.</div>';$('qrLink').textContent='';return;}
+  if(typeof qrcode==='undefined'){box.innerHTML='<div style="color:#000;padding:20px;text-align:center">Bibliothèque QR non chargée.</div>';}
+  else drawQR(sessionLink(),box);
+  $('qrLink').textContent=sessionLink();
+}
+function qrFull(){
+  if(!code||typeof qrcode==='undefined') return;
+  drawQR(sessionLink(),$('qrFullBox'));
+  $('qrFullLbl').textContent=code;
+  $('qrFull').style.display='flex';
+}
+$('qrBox').addEventListener('click',qrFull);
+$('btnQrFull').addEventListener('click',qrFull);
+$('qrFull').addEventListener('click',()=>{$('qrFull').style.display='none';});
+$('btnQrCopy').addEventListener('click',async()=>{
+  if(!code) return;
+  try{await navigator.clipboard.writeText(sessionLink());$('btnQrCopy').textContent='✓ Copié';}
+  catch(e){prompt('Lien de session :',sessionLink());}
+  setTimeout(()=>{$('btnQrCopy').textContent='📋 Copier le lien';},1500);
+});
+
+// ══════════════ CALCUL ══════════════
+function compute(){
+  const now=Date.now(), expOn=expected.size>0;
+  // 1. Par trieur, fusion par TN : heure = premier scan, tournée / adresse = dernière connue
+  const T=new Map();
+  [...rows.values()].sort((a,b)=>a._t-b._t).forEach(r=>{
+    const tKey=normName(r.trieur)||'?';
+    let g=T.get(tKey);
+    if(!g){g={tKey,name:String(r.trieur||'(sans nom)').trim(),devices:new Set(),items:new Map(),lastScan:0,lastRecv:0};T.set(tKey,g);}
+    if(r.device_id) g.devices.add(r.device_id);
+    if(r._t>g.lastScan) g.lastScan=r._t;
+    if(r._r>g.lastRecv) g.lastRecv=r._r;
+    if(r.kind==='adr'){g.items.set('A:'+r.id,{g,kind:'adr',tn:'',adr:r.adresse||'',tour:r.tournee||'',t:r._t,hors:false});return;}
+    const tn=normCode(r.tn); if(!tn) return;
+    let it=g.items.get(tn);
+    if(!it){it={g,kind:r.kind,tn,adr:'',tour:'',t:r._t,hors:false};g.items.set(tn,it);}
+    if(r.kind==='hors') it.kind='hors';
+    if(r.tournee) it.tour=r.tournee;
+    if(r.adresse) it.adr=r.adresse;
+  });
+  // 2. Hors liste (le JSON chargé sur ce PC fait foi), propriétaires de chaque TN
+  const owners=new Map();
+  let lastAny=0, pauseDirty=false;
+  const trieurs=[...T.values()].sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+  trieurs.forEach((g,i)=>{
+    g.idx=i; g.n=g.items.size; g.nHors=0; g.nAdr=0; g.q15=0; g.first=0;
+    g.items.forEach(it=>{
+      if(!g.first||it.t<g.first) g.first=it.t;
+      if(it.t>=now-Q15) g.q15++;
+      if(it.kind==='adr'){g.nAdr++;return;}
+      const e=expOn?expected.get(it.tn):null;
+      it.hors=expOn?!e:it.kind==='hors';
+      if(e) it.tour=e.tour;
+      if(it.hors) g.nHors++;
+      let o=owners.get(it.tn); if(!o){o=[];owners.set(it.tn,o);}
+      o.push(it);
+    });
+    if(g.lastRecv>lastAny) lastAny=g.lastRecv;
+    // un trieur « en pause / terminé » qui rescanne redevient actif
+    const p=pauses[g.tKey];
+    if(p&&g.lastRecv>p.at+5000){delete pauses[g.tKey];pauseDirty=true;}
+    g.pause=pauses[g.tKey]?pauses[g.tKey].s:'';
+    g.idle=Math.max(0,now-g.lastScan);
+  });
+  if(pauseDirty) lsSet('suiviTri_pause_'+code,pauses);
+  const live=lastAny>0&&now-lastAny<LIVE_MS;
+  trieurs.forEach(g=>{g.alert=live&&!g.pause&&g.idle>ALERT_MS;});
+
+  // 3. Par tournée
+  const tours=new Map();
+  const getT=name=>{let t=tours.get(name); if(!t){t={name,exp:0,done:0,hors:0,adr:0};tours.set(name,t);} return t;};
+  expected.forEach(e=>{getT(e.tour).exp++;});
+  let nHors=0, nAdr=0, doneExp=0;
+  const dups=[];
+  owners.forEach((o,tn)=>{
+    o.sort((a,b)=>a.t-b.t);
+    if(o.length>1) dups.push({tn,o});
+    const lastIt=o.reduce((a,b)=>(b.tour?b:a),o[0]);
+    if(o[0].hors){nHors++;getT(lastIt.tour||'').hors++;}
+    else{getT(lastIt.tour||'').done++; if(expOn) doneExp++;}
+  });
+  trieurs.forEach(g=>g.items.forEach(it=>{if(it.kind==='adr'){nAdr++;getT(it.tour||'').adr++;}}));
+  const tourList=[...tours.values()].sort((a,b)=>(a.name==='')-(b.name==='')||natCmp(a.name,b.name));
+  dups.sort((a,b)=>b.o[b.o.length-1].t-a.o[a.o.length-1].t);
+
+  // 4. Attendus jamais scannés
+  const rest=[];
+  if(expOn) expected.forEach((e,tn)=>{if(!owners.has(tn)) rest.push({tn,tour:e.tour,pos:e.pos,adr:e.adr});});
+  rest.sort((a,b)=>natCmp(a.tour,b.tour)||a.pos-b.pos);
+
+  const horsItems=[];
+  trieurs.forEach(g=>g.items.forEach(it=>{if(it.kind==='adr'||it.hors) horsItems.push(it);}));
+  horsItems.sort((a,b)=>b.t-a.t);
+
+  return {now,expOn,live,lastAny,trieurs,tourList,dups,rest,horsItems,nHors,nAdr,doneExp,
+    tries:owners.size+nAdr,q15:trieurs.reduce((s,g)=>s+g.q15,0)};
+}
+
+// ══════════════ AFFICHAGE ══════════════
+let rTimer=null, lastRender=0;
+function schedule(){
+  if(rTimer) return;
+  rTimer=setTimeout(()=>{rTimer=null;render();},Math.max(0,1000-(Date.now()-lastRender)));
+}
+function renderStatus(){
+  const rt=$('pRt'), sy=$('pSync');
+  if(!code){rt.textContent='Aucune session';rt.className='pill';sy.textContent='';return;}
+  if(rtState==='SUBSCRIBED'){rt.textContent='🟢 Temps réel connecté';rt.className='pill ok';}
+  else{rt.textContent='🟠 Temps réel : connexion…';rt.className='pill wait';}
+  if(loadErr){sy.textContent='⚠ Lecture impossible';sy.className='pill err';}
+  else if(loading){sy.textContent='⏳ Chargement… '+num(rows.size)+' lignes';sy.className='pill wait';}
+  else{sy.textContent=num(rows.size)+' lignes · vérifié à '+fmtHs(lastSync);sy.className='pill';}
+}
+function render(){
+  lastRender=Date.now();
+  if(!user) return;
+  last=compute();
+  renderStatus(); renderBanners(); renderKpis();
+  ({trieurs:renderTrieurs,tours:renderTours,hors:renderHors,dup:renderDup,rest:renderRest,graph:renderGraph})[tab]();
+}
+function renderBanners(){
+  const L=last; let h='';
+  if(loadErr) h+='<div class="banner err">⚠ Lecture des scans impossible<small>'+esc(loadErr)+'</small></div>';
+  if(code&&!L.expOn) h+='<div class="banner">⚠ JSON des tournées non chargé : colis attendus et non scannés indisponibles<small>Chargez le JSON des tournées dans la colonne de gauche.</small></div>';
+  const al=L.trieurs.filter(g=>g.alert);
+  if(al.length) h+='<div class="banner err">⚠ '+al.length+' trieur'+(al.length>1?'s':'')+' sans scan depuis plus de 10 min<small>'+al.map(g=>esc(g.name)+' ('+fmtAgo(g.idle)+')').join(' · ')+'</small></div>';
+  if(code&&!loading&&!loadErr&&!rows.size) h+='<div class="banner" style="border-color:var(--border);background:var(--surf);color:var(--muted)">Aucun scan reçu pour la session '+esc(code)+'.</div>';
+  else if(rows.size&&!L.live) h+='<div class="banner" style="border-color:var(--border);background:var(--surf);color:var(--muted)">Session inactive : dernière réception le '+new Date(L.lastAny).toLocaleDateString('fr-FR')+' à '+fmtHs(L.lastAny)+'<small>Les alertes d\'inactivité sont suspendues.</small></div>';
+  $('banners').innerHTML=h;
+}
+function renderKpis(){
+  const L=last, exp=expected.size;
+  $('kTries').textContent=num(L.tries);
+  ['kpAtt','kpPct','kpRest'].forEach(id=>$(id).classList.toggle('off',!L.expOn));
+  $('kAtt').textContent=L.expOn?num(exp):'—';
+  $('kPct').textContent=L.expOn?Math.floor(L.doneExp/exp*100)+' %':'—';
+  $('kRest').textContent=L.expOn?num(L.rest.length):'—';
+  const act=L.trieurs.filter(g=>L.live&&!g.pause&&!g.alert).length;
+  $('kTrieurs').textContent=act+' / '+L.trieurs.length;
+  $('kCad').textContent=num(L.q15*4);
+  $('cHors').textContent='('+num(L.horsItems.length)+')';
+  $('cDup').textContent='('+num(L.dups.length)+')';
+  $('cRest').textContent=L.expOn?'('+num(L.rest.length)+')':'';
+}
+
+// ── Trieurs ──
+function renderTrieurs(){
+  const L=last, el=$('tTrieurs');
+  if(!L.trieurs.length){el.innerHTML='<div class="empty">'+(loading?'Chargement…':'Aucun trieur pour cette session.')+'</div>';return;}
+  el.innerHTML='<table><thead><tr><th>Trieur</th><th class="n">Colis triés</th><th class="n">dont<br/>hors liste</th><th class="n">dont<br/>adresse</th><th class="n">Cadence 15 min<br/>(colis/h)</th><th>1er scan</th><th>Dernier scan</th><th>Dernière<br/>réception</th><th>État</th><th></th></tr></thead><tbody>'+
+    L.trieurs.map(g=>{
+      let st, btn;
+      if(g.pause){
+        st=g.pause==='fini'?'<span class="tag ok big">✅ Terminé</span>':'<span class="tag mut big">⏸ En pause</span>';
+        btn='<button class="btn sm" data-act="go" data-k="'+esc(g.tKey)+'">▶ Reprendre</button>';
+      }else{
+        st=!L.live?'<span class="tag mut big">Inactif</span>':g.alert?'<span class="tag err big">⚠ Rien depuis '+fmtAgo(g.idle)+'</span>':'<span class="tag ok big">Actif</span>';
+        btn='<button class="btn sm" data-act="pause" data-k="'+esc(g.tKey)+'">⏸ En pause</button> <button class="btn sm" data-act="fini" data-k="'+esc(g.tKey)+'">✅ Terminé</button>';
+      }
+      return '<tr class="'+(g.alert?'alert':g.pause?'dim':'')+'"><td><b>'+esc(g.name)+'</b>'+(g.devices.size>1?'<span class="tag" title="Même nom sur plusieurs téléphones">'+g.devices.size+' téléphones</span>':'')+'</td>'+
+        '<td class="n"><b>'+num(g.n)+'</b></td><td class="n">'+num(g.nHors)+'</td><td class="n">'+num(g.nAdr)+'</td><td class="n">'+num(g.q15*4)+'</td>'+
+        '<td>'+fmtH(g.first)+'</td><td>'+fmtHs(g.lastScan)+'</td><td>'+fmtHs(g.lastRecv)+'</td><td>'+st+'</td><td>'+btn+'</td></tr>';
+    }).join('')+
+    '<tr class="tot"><td>Total</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.n,0))+'</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.nHors,0))+'</td><td class="n">'+num(L.nAdr)+'</td><td class="n">'+num(L.q15*4)+'</td><td colspan="5"></td></tr>'+
+    '</tbody></table>'+(L.dups.length?'<div class="note">Le total par trieur compte '+num(L.dups.reduce((s,d)=>s+d.o.length-1,0))+' doublon(s) entre trieurs : il dépasse d\'autant les « colis triés ».</div>':'');
+}
+$('tTrieurs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  if(b.dataset.act==='go') delete pauses[b.dataset.k];
+  else pauses[b.dataset.k]={s:b.dataset.act,at:Date.now()};
+  lsSet('suiviTri_pause_'+code,pauses);
+  render();
+});
+
+// ── Tournées ──
+function renderTours(){
+  const L=last, el=$('tTours');
+  if(!L.tourList.length){el.innerHTML='<div class="empty">Aucune tournée.</div>';return;}
+  const tot=L.tourList.reduce((s,t)=>({exp:s.exp+t.exp,done:s.done+t.done,hors:s.hors+t.hors,adr:s.adr+t.adr}),{exp:0,done:0,hors:0,adr:0});
+  const row=(t,cls,label)=>{
+    const has=L.expOn&&t.exp>0, pct=has?Math.floor(t.done/t.exp*100):0;
+    return '<tr class="'+cls+'"><td>'+label+'</td><td class="n"><b>'+num(t.done)+'</b></td><td class="n'+(has?'':' muted')+'">'+(has?num(t.exp):'—')+'</td>'+
+      '<td class="n'+(has?'':' muted')+'">'+(has?num(t.exp-t.done):'—')+'</td>'+
+      '<td style="width:30%">'+(has?'<div class="bar'+(t.done>=t.exp?' full':'')+'"><i style="width:'+Math.min(100,t.done/t.exp*100).toFixed(1)+'%"></i></div>':'<div class="bar" style="opacity:.35"></div>')+'</td>'+
+      '<td class="n'+(has?'':' muted')+'">'+(has?pct+' %':'—')+'</td><td class="n">'+num(t.hors)+'</td><td class="n">'+num(t.adr)+'</td></tr>';
+  };
+  el.innerHTML='<table><thead><tr><th>Tournée</th><th class="n">Triés</th><th class="n">Attendus</th><th class="n">Restants</th><th>Progression</th><th class="n">%</th><th class="n">+ hors liste</th><th class="n">+ adresse</th></tr></thead><tbody>'+
+    L.tourList.map(t=>row(t,'',t.name===''?'<span class="muted">(sans tournée)</span>':'<b>'+esc(t.name)+'</b>'+(L.expOn&&!t.exp?'<span class="tag mut" title="Tournée absente du JSON chargé">hors JSON</span>':''))).join('')+
+    row(tot,'tot','Total')+'</tbody></table>'+
+    '<div class="note">'+(L.expOn?'<b>Triés</b> = colis attendus de la tournée scannés par au moins un trieur. Les colis hors liste et saisis par adresse rattachés à la tournée sont comptés à part.':'JSON des tournées non chargé : tournées et compteurs d\'après les scans reçus, sans les colis attendus.')+'</div>';
+}
+
+// ── Hors liste & adresses ──
+function horsFiltered(){
+  const q=normName($('hSearch').value);
+  return last.horsItems.filter(it=>!q||normName(it.tn+' '+it.adr+' '+it.g.name+' '+it.tour).indexOf(q)>=0);
+}
+function renderHors(){
+  const el=$('tHors'), list=horsFiltered(), MAX=1500;
+  if(!last.horsItems.length){el.innerHTML='<div class="empty">Aucun colis hors liste ni saisi par adresse.</div>';return;}
+  el.innerHTML='<table><thead><tr><th>Heure</th><th>Trieur</th><th>Type</th><th>TN</th><th>Adresse</th><th>Tournée</th></tr></thead><tbody>'+
+    list.slice(0,MAX).map(it=>'<tr><td>'+fmtHs(it.t)+'</td><td>'+esc(it.g.name)+'</td><td>'+(it.kind==='adr'?'Adresse':'TN hors liste')+'</td>'+
+      '<td class="mono">'+esc(it.tn)+'</td><td class="wr">'+(it.adr?esc(it.adr):'<span class="muted">—</span>')+'</td>'+
+      '<td>'+(it.tour?'<b>'+esc(it.tour)+'</b>':'<span class="tag err">sans tournée</span>')+'</td></tr>').join('')+
+    '</tbody></table>'+(list.length>MAX?'<div class="note">Affichage des '+num(MAX)+' premiers sur '+num(list.length)+' (le CSV contient tout).</div>':'');
+}
+$('hSearch').addEventListener('input',renderHors);
+
+// ── Doublons entre trieurs ──
+function renderDup(){
+  const el=$('tDup'), L=last;
+  if(!L.dups.length){el.innerHTML='<div class="empty">Aucun colis scanné par plusieurs trieurs.</div>';return;}
+  el.innerHTML='<table><thead><tr><th>TN</th><th>Tournée</th><th>Scanné par</th></tr></thead><tbody>'+
+    L.dups.slice(0,1500).map(d=>'<tr><td class="mono">'+esc(d.tn)+'</td><td>'+esc(d.o.reduce((a,b)=>b.tour||a,'')||'—')+'</td><td class="wr">'+
+      d.o.map((it,i)=>'<b>'+esc(it.g.name)+'</b> <span class="muted">'+fmtHs(it.t)+'</span>'+(i?'':'<span class="tag ok">1er</span>')).join(' · ')+'</td></tr>').join('')+
+    '</tbody></table>';
+}
+
+// ── Attendus jamais scannés ──
+function restFiltered(){const t=$('rTour').value;return last.rest.filter(r=>!t||r.tour===t);}
+function renderRest(){
+  const el=$('tRest'), L=last, sel=$('rTour');
+  if(!L.expOn){
+    sel.innerHTML=''; $('restCount').textContent='';
+    el.innerHTML='<div class="empty">JSON des tournées non chargé :<br/>colis attendus et non scannés indisponibles.</div>';
+    return;
+  }
+  const names=[...new Set(L.rest.map(r=>r.tour))], v=sel.value;
+  sel.innerHTML='<option value="">Toutes</option>'+names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+  if(names.includes(v)) sel.value=v;
+  const list=restFiltered(), MAX=1500;
+  $('restCount').textContent=num(list.length)+' colis'+(list.length>MAX?' — affichage des '+num(MAX)+' premiers (le CSV contient tout)':'');
+  el.innerHTML=list.length?'<table><thead><tr><th>Tournée</th><th class="n">Position</th><th>TN</th><th>Adresse</th></tr></thead><tbody>'+
+    list.slice(0,MAX).map(r=>'<tr><td><b>'+esc(r.tour)+'</b></td><td class="n">'+r.pos+'</td><td class="mono">'+esc(r.tn)+'</td><td class="wr muted">'+esc(r.adr)+'</td></tr>').join('')+
+    '</tbody></table>':'<div class="empty">✅ Tous les colis attendus ont été scannés.</div>';
+}
+$('rTour').addEventListener('change',renderRest);
+
+// ── Graphique (SVG repris de l'outil de paie) ──
+function renderGraph(){
+  const wrap=$('gWrap'), tip=$('tip');
+  wrap.querySelectorAll('svg,.empty').forEach(n=>n.remove());
+  const mode=$('gMode').value;
+  // couleur fixe par trieur : ordre alphabétique
+  const series=last.trieurs.map(g=>{
+    const ts=[...g.items.values()].map(it=>it.t).filter(Boolean).sort((a,b)=>a-b);
+    return {g,name:g.name,ts,color:SERIES[g.idx%SERIES.length]};
+  }).filter(s=>s.ts.length);
+  $('gTitle').textContent=(mode==='cumul'?'Colis scannés cumulés':'Colis scannés par quart d\'heure')+' — '+(code||'');
+  if(!series.length){
+    $('gLegend').innerHTML=''; tip.style.display='none';
+    wrap.insertAdjacentHTML('beforeend','<div class="empty">Aucune donnée.</div>');
+    return;
+  }
+  if(series.length>SERIES.length) $('gTitle').textContent+=' (plus de 8 trieurs : certaines couleurs se répètent, utilisez la légende)';
+  $('gLegend').innerHTML=series.map(s=>'<label class="'+(hidden.has(s.g.tKey)?'off':'')+'" data-k="'+esc(s.g.tKey)+'"><span class="sw" style="background:'+s.color+'"></span>'+esc(s.name)+' <span class="muted">('+s.ts.length+')</span></label>').join('');
+  $('gLegend').querySelectorAll('label').forEach(l=>l.addEventListener('click',()=>{const k=l.dataset.k;hidden.has(k)?hidden.delete(k):hidden.add(k);renderGraph();}));
+  const vis=series.filter(s=>!hidden.has(s.g.tKey));
+
+  // axe du temps arrondi au quart d'heure
+  const Q=Q15;
+  const allT=series.flatMap(s=>s.ts);
+  const t0=Math.floor(allT.reduce((a,b)=>Math.min(a,b))/Q)*Q, t1=Math.ceil((allT.reduce((a,b)=>Math.max(a,b))+1)/Q)*Q;
+  const W=900,H=380,m={l:48,r:110,t:14,b:34};
+  const x=t=>m.l+(t-t0)/(t1-t0)*(W-m.l-m.r);
+  let pts;   // par série : [[t,valeur]]
+  const nb=Math.round((t1-t0)/Q);
+  if(mode==='cumul'){
+    pts=vis.map(s=>{const p=[[s.ts[0],0]];s.ts.forEach((t,i)=>p.push([t,i+1]));return p;});
+  }else{
+    pts=vis.map(s=>{const c=new Array(nb).fill(0);s.ts.forEach(t=>c[Math.min(nb-1,Math.floor((t-t0)/Q))]++);return c.map((v,i)=>[t0+i*Q+Q/2,v]);});
+  }
+  const maxV=pts.reduce((mx,p)=>p.reduce((a,q)=>Math.max(a,q[1]),mx),1);
+  const step=niceStep(maxV/5), yMax=Math.ceil(maxV/step)*step;
+  const y=v=>H-m.b-(v/yMax)*(H-m.t-m.b);
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const grid=css('--border'), muted=css('--muted'), fg=css('--fg'), surf=css('--surf');
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc($('gTitle').textContent)+'">';
+  for(let v=0;v<=yMax;v+=step) svg+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="'+grid+'"/><text x="'+(m.l-8)+'" y="'+(y(v)+4)+'" fill="'+muted+'" font-size="11" text-anchor="end">'+num(v)+'</text>';
+  const hStep=(t1-t0)>6*3600000?3600000:(t1-t0)>2*3600000?1800000:Q;
+  for(let t=Math.ceil(t0/hStep)*hStep;t<=t1;t+=hStep) svg+='<line x1="'+x(t)+'" x2="'+x(t)+'" y1="'+(H-m.b)+'" y2="'+(H-m.b+4)+'" stroke="'+muted+'"/><text x="'+x(t)+'" y="'+(H-m.b+18)+'" fill="'+muted+'" font-size="11" text-anchor="middle">'+fmtH(t)+'</text>';
+  svg+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+(H-m.b)+'" y2="'+(H-m.b)+'" stroke="'+muted+'"/>';
+  // lignes (escalier pour le cumul), avec étiquette directe en fin de ligne si 4 trieurs ou moins
+  const labels=[];
+  vis.forEach((s,i)=>{
+    const p=pts[i];
+    let d='M'+x(p[0][0]).toFixed(1)+','+y(p[0][1]).toFixed(1);
+    for(let j=1;j<p.length;j++){
+      if(mode==='cumul') d+='H'+x(p[j][0]).toFixed(1)+'V'+y(p[j][1]).toFixed(1);
+      else d+='L'+x(p[j][0]).toFixed(1)+','+y(p[j][1]).toFixed(1);
+    }
+    svg+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round"/>';
+    const lp=p[p.length-1];
+    if(mode==='cumul'){
+      svg+='<circle cx="'+x(lp[0])+'" cy="'+y(lp[1])+'" r="4" fill="'+s.color+'" stroke="'+surf+'" stroke-width="2"/>';
+      if(vis.length<=4) labels.push({y:y(lp[1]),x:x(lp[0]),txt:s.name+' '+lp[1]});
+    }else{
+      p.forEach(q=>{ if(q[1]) svg+='<circle cx="'+x(q[0]).toFixed(1)+'" cy="'+y(q[1]).toFixed(1)+'" r="3.5" fill="'+s.color+'" stroke="'+surf+'" stroke-width="2"/>'; });
+    }
+  });
+  labels.sort((a,b)=>a.y-b.y).forEach((l,i,arr)=>{if(i&&l.y-arr[i-1].y<14) l.y=arr[i-1].y+14;});
+  labels.forEach(l=>svg+='<text x="'+(Math.min(l.x,W-m.r)+8)+'" y="'+(l.y+4)+'" fill="'+fg+'" font-size="12" font-weight="700">'+esc(l.txt.trim())+'</text>');
+  svg+='<line id="gCross" x1="0" x2="0" y1="'+m.t+'" y2="'+(H-m.b)+'" stroke="'+muted+'" stroke-dasharray="3,3" visibility="hidden"/>';
+  svg+='<rect x="'+m.l+'" y="'+m.t+'" width="'+(W-m.l-m.r)+'" height="'+(H-m.t-m.b)+'" fill="transparent" id="gHit"/>';
+  svg+='</svg>';
+  wrap.insertAdjacentHTML('afterbegin',svg);
+
+  // survol : valeur de chaque trieur à l'heure pointée
+  const svgEl=wrap.querySelector('svg'), cross=svgEl.querySelector('#gCross'), hit=svgEl.querySelector('#gHit');
+  hit.addEventListener('mousemove',ev=>{
+    if(!vis.length) return;
+    const r=svgEl.getBoundingClientRect(), sx=(ev.clientX-r.left)/r.width*W;
+    let t=t0+(sx-m.l)/(W-m.l-m.r)*(t1-t0);
+    let rws, head;
+    if(mode==='cumul'){
+      head=fmtH(t);
+      rws=vis.map(s=>{let n=0;for(const ts of s.ts){if(ts<=t)n++;else break;}return {s,v:n};});
+    }else{
+      const k=Math.max(0,Math.min(nb-1,Math.floor((t-t0)/Q)));
+      t=t0+k*Q+Q/2; head=fmtH(t0+k*Q)+' – '+fmtH(t0+(k+1)*Q);
+      rws=vis.map((s,i)=>({s,v:pts[i][k][1]}));
+    }
+    cross.setAttribute('x1',x(t));cross.setAttribute('x2',x(t));cross.setAttribute('visibility','visible');
+    rws.sort((a,b)=>b.v-a.v);
+    tip.innerHTML='<div class="t">'+head+'</div>'+rws.map(r=>'<div class="r"><span class="sw" style="width:10px;height:3px;border-radius:2px;background:'+r.s.color+'"></span>'+esc(r.s.name)+'<b>'+num(r.v)+'</b></div>').join('');
+    tip.style.display='block';
+    const px=(x(t)/W)*r.width, wr=wrap.getBoundingClientRect();
+    const left=px+14+tip.offsetWidth>wr.width?px-14-tip.offsetWidth:px+14;
+    tip.style.left=left+'px'; tip.style.top=Math.max(0,(ev.clientY-wr.top)-tip.offsetHeight/2)+'px';
+  });
+  hit.addEventListener('mouseleave',()=>{tip.style.display='none';cross.setAttribute('visibility','hidden');});
+}
+function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(Math.max(raw,1))));const f=raw/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p;}
+$('gMode').addEventListener('change',renderGraph);
+
+// ── Exports CSV (séparateur ; pour Excel FR) ──
+function csv(rws,name){
+  const txt='﻿'+rws.map(r=>r.map(v=>{v=String(v==null?'':v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(';')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'})); a.download=name; a.click();
+}
+$('btnCsvRest').addEventListener('click',()=>{
+  if(!last||!last.expOn){alert('JSON des tournées non chargé.');return;}
+  const list=restFiltered(); if(!list.length){alert('Aucun colis.');return;}
+  csv([['Tournée','Position','TN','Adresse']].concat(list.map(r=>[r.tour,r.pos,r.tn,r.adr])),'non_scannes_'+code+'.csv');
+});
+$('btnCsvHors').addEventListener('click',()=>{
+  const list=horsFiltered(); if(!list.length){alert('Aucun colis.');return;}
+  csv([['Heure','Trieur','Type','TN','Adresse','Tournée']].concat(list.map(it=>[fmtHs(it.t),it.g.name,it.kind==='adr'?'Adresse':'TN hors liste',it.tn,it.adr,it.tour])),'hors_liste_'+code+'.csv');
+});
+
+// ── Onglets ──
+document.querySelectorAll('#mainTabs .btn').forEach(b=>b.addEventListener('click',()=>{
+  tab=b.dataset.t;
+  document.querySelectorAll('#mainTabs .btn').forEach(x=>x.classList.toggle('on',x===b));
+  ['trieurs','tours','hors','dup','rest','graph'].forEach(t=>$('t-'+t).style.display=t===tab?'':'none');
+  if(last) render();
+}));
+</script>
+</body>
+</html>
