@@ -972,6 +972,25 @@ const addrModal=document.getElementById('addrModal');
 const addrInput=document.getElementById('addrInput');
 const addrResult=document.getElementById('addrResult');
 
+// ── Géocodage limité à la zone des tournées ──
+const MAX_KM=40;   // au-delà, l'adresse trouvée est considérée comme une erreur (homonyme dans une autre ville)
+function zoneCenter(){
+  let n=0,la=0,lo=0;
+  loadedTours.forEach(t=>t.colis.forEach(c=>{if(c.lat&&c.lon){la+=c.lat;lo+=c.lon;n++;}}));
+  return n?{lat:la/n,lon:lo/n}:null;
+}
+function distToTours(lat,lon){
+  // distance (km) au colis chargé le plus proche
+  let best=Infinity;
+  const k=Math.cos(lat*Math.PI/180);
+  loadedTours.forEach(t=>t.colis.forEach(c=>{
+    if(!c.lat||!c.lon) return;
+    const dx=(c.lon-lon)*k*111.32, dy=(c.lat-lat)*110.57, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<best) best=d;
+  }));
+  return best;
+}
+
 // TN inconnu en attente de son adresse (null = saisie d'un colis sans TN)
 let pendingUnknown=null;
 
@@ -1007,19 +1026,25 @@ async function rechercherAdresseMobile(){
   addrResult.textContent='⏳ Recherche en cours…';
 
   try{
-    const url='https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(addr)+'&limit=1';
+    // Recherche orientée vers la zone des tournées chargées, puis on écarte les résultats trop loin
+    const zone=zoneCenter();
+    let url='https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(addr)+'&limit=5';
+    if(zone) url+='&lat='+zone.lat.toFixed(5)+'&lon='+zone.lon.toFixed(5);
     const resp=await fetch(url);
     const data=await resp.json();
+    const feats=(data.features||[]);
+    const feat=zone?feats.find(f=>distToTours(f.geometry.coordinates[1],f.geometry.coordinates[0])<=MAX_KM):feats[0];
 
-    if(!data.features||!data.features.length){
+    if(!feat){
       addrResult.style.border='2px solid var(--err)';
       addrResult.style.background='rgba(229,57,53,.12)';
       addrResult.style.color='var(--err)';
-      addrResult.textContent='❌ Adresse introuvable';
+      addrResult.innerHTML=feats.length
+        ?'❌ Adresse trouvée trop loin des tournées<div style="font-size:12px;font-weight:400;margin-top:4px">('+escHtml(feats[0].properties.label)+')<br/>Ajoutez le code postal ou la ville.</div>'
+        :'❌ Adresse introuvable';
       return;
     }
 
-    const feat=data.features[0];
     const lon=feat.geometry.coordinates[0];
     const lat=feat.geometry.coordinates[1];
     const label=feat.properties.label;
