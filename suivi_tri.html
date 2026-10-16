@@ -101,7 +101,7 @@ tr.dim td{color:var(--muted)}
 <body>
 <header>
   <h1>📡 Suivi du tri en direct</h1>
-  <a class="btn" href="remuneration_tri_Sadek_v3.html" style="text-decoration:none">💶 Paie</a>
+  <a class="btn" href="remuneration_tri_Sadek_v4.html" style="text-decoration:none">💶 Paie</a>
   <span class="pill" id="pRt" style="display:none"></span>
   <span class="pill" id="pSync" style="display:none"></span>
   <button class="btn" id="btnReload" style="display:none" title="Recharger toutes les lignes de la session">🔄 Recharger</button>
@@ -185,7 +185,7 @@ tr.dim td{color:var(--muted)}
 
     <section id="t-trieurs">
       <div class="panel"><div class="tbl" id="tTrieurs"></div></div>
-      <div class="note"><b>Colis triés</b> = TN distincts + colis saisis par adresse. <b>Cadence</b> = colis des 15 dernières minutes × 4. <b>Dernier scan</b> = heure du téléphone ; <b>dernière réception</b> = heure d'arrivée au serveur (un écart important = téléphone sans réseau). L'état « en pause / terminé » est gardé sur ce PC et s'annule tout seul si le trieur rescanne.</div>
+      <div class="note"><b>Colis triés</b> = TN distincts + colis saisis par adresse. <b>Tournées non payées</b> = colis triés dont la tournée est dans la liste de la paie (BACKLOG, NAVETTE, WRONG HUB…), comptés dans les colis triés mais pas payés ; survolez le nombre pour le détail. <b>Cadence</b> = colis des 15 dernières minutes × 4. <b>Dernier scan</b> = heure du téléphone ; <b>dernière réception</b> = heure d'arrivée au serveur (un écart important = téléphone sans réseau). L'état « en pause / terminé » est gardé sur ce PC et s'annule tout seul si le trieur rescanne.</div>
     </section>
 
     <section id="t-tours" style="display:none">
@@ -240,7 +240,7 @@ tr.dim td{color:var(--muted)}
 const XPT_LIST=['XPT22','XPT23','XPT35'];
 const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
 const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';
-const MOBILE_URL='https://mikhael988-sys.github.io/App-driver-Mikhael/mobile_driverSadek_v11.html';
+const MOBILE_URL='https://mikhael988-sys.github.io/App-driver-Mikhael/mobile_driverSadek_v12.html';
 const PAGE=1000;               // limite de lignes par requête
 const ALERT_MS=10*60000;       // alerte si aucun scan depuis 10 min
 const Q15=15*60000;
@@ -282,6 +282,23 @@ let pauses={};                  // tKey → {s:'pause'|'fini', at}
 let dayCodes=[], dayTok=0, dayErr='';
 let tab='trieurs', hidden=new Set(), last=null;
 
+// ══════════════ TOURNÉES NON PAYÉES (même règle que la paie v4) ══════════════
+// Liste partagée dans tri_parametres ; à défaut, liste par défaut.
+const EXCL_DEF=['BACKLOG','NAVETTE','WRONG HUB'];
+let exclList=EXCL_DEF.slice();
+const normTour=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[\s_-]+/g,'');
+// même nom après normalisation, ou ce nom suivi d'un numéro (BACKLOG → BACKLOG 42)
+function exclOf(tour){
+  const n=normTour(tour); if(!n) return '';
+  for(const x of exclList){const e=normTour(x); if(e&&(n===e||(n.startsWith(e)&&/^\d+$/.test(n.slice(e.length))))) return x;}
+  return '';
+}
+async function loadExcl(){
+  if(!user) return;
+  const {data,error}=await sb.from('tri_parametres').select('valeur,annule').eq('id','tournees_non_payees').maybeSingle();
+  if(!error&&data&&!data.annule&&Array.isArray(data.valeur)){exclList=data.valeur.map(String); schedule();}
+}
+
 // ══════════════ CONNEXION ══════════════
 $('loginForm').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -301,7 +318,7 @@ function onAuth(sess){
   $('app').style.display=u?'':'none';
   ['btnLogout','btnReload','pRt','pSync'].forEach(id=>$(id).style.display=u?'':'none');
   $('userMail').textContent=u?u.email:'';
-  if(u) openSession();
+  if(u){openSession(); loadExcl();}
   else{ stopChannel(); rows.clear(); code=''; }
 }
 if(sb) sb.auth.onAuthStateChange((ev,sess)=>setTimeout(()=>onAuth(sess),0));
@@ -414,7 +431,7 @@ setInterval(()=>{
   if(slept){subscribe();catchUp();}
   schedule();
 },20000);
-setInterval(()=>{if(user) loadDayCodes();},5*60000);
+setInterval(()=>{if(user){loadDayCodes(); loadExcl();}},5*60000);
 
 // ── Codes de session vus pour la date choisie ──
 async function loadDayCodes(){
@@ -585,14 +602,16 @@ function compute(){
   let lastAny=0, pauseDirty=false;
   const trieurs=[...T.values()].sort((a,b)=>a.name.localeCompare(b.name,'fr'));
   trieurs.forEach((g,i)=>{
-    g.idx=i; g.n=g.items.size; g.nHors=0; g.nAdr=0; g.q15=0; g.first=0;
+    g.idx=i; g.n=g.items.size; g.nHors=0; g.nAdr=0; g.q15=0; g.first=0; g.nExcl=0; g.exclBy=new Map();
+    const countExcl=it=>{if(exclOf(it.tour)){g.nExcl++; g.exclBy.set(it.tour,(g.exclBy.get(it.tour)||0)+1);}};
     g.items.forEach(it=>{
       if(!g.first||it.t<g.first) g.first=it.t;
       if(it.t>=now-Q15) g.q15++;
-      if(it.kind==='adr'){g.nAdr++;return;}
+      if(it.kind==='adr'){g.nAdr++;countExcl(it);return;}
       const e=expOn?expected.get(it.tn):null;
       it.hors=expOn?!e:it.kind==='hors';
       if(e) it.tour=e.tour;
+      countExcl(it);
       if(it.hors) g.nHors++;
       let o=owners.get(it.tn); if(!o){o=[];owners.set(it.tn,o);}
       o.push(it);
@@ -689,7 +708,7 @@ function renderKpis(){
 function renderTrieurs(){
   const L=last, el=$('tTrieurs');
   if(!L.trieurs.length){el.innerHTML='<div class="empty">'+(loading?'Chargement…':'Aucun trieur pour cette session.')+'</div>';return;}
-  el.innerHTML='<table><thead><tr><th>Trieur</th><th class="n">Colis triés</th><th class="n">dont<br/>hors liste</th><th class="n">dont<br/>adresse</th><th class="n">Cadence 15 min<br/>(colis/h)</th><th>1er scan</th><th>Dernier scan</th><th>Dernière<br/>réception</th><th>État</th><th></th></tr></thead><tbody>'+
+  el.innerHTML='<table><thead><tr><th>Trieur</th><th class="n">Colis triés</th><th class="n">dont<br/>hors liste</th><th class="n">dont<br/>adresse</th><th class="n" title="BACKLOG / NAVETTE / WRONG HUB…">Tournées<br/>non payées</th><th class="n">Cadence 15 min<br/>(colis/h)</th><th>1er scan</th><th>Dernier scan</th><th>Dernière<br/>réception</th><th>État</th><th></th></tr></thead><tbody>'+
     L.trieurs.map(g=>{
       let st, btn;
       if(g.pause){
@@ -700,10 +719,12 @@ function renderTrieurs(){
         btn='<button class="btn sm" data-act="pause" data-k="'+esc(g.tKey)+'">⏸ En pause</button> <button class="btn sm" data-act="fini" data-k="'+esc(g.tKey)+'">✅ Terminé</button>';
       }
       return '<tr class="'+(g.alert?'alert':g.pause?'dim':'')+'"><td><b>'+esc(g.name)+'</b>'+(g.devices.size>1?'<span class="tag" title="Même nom sur plusieurs téléphones">'+g.devices.size+' téléphones</span>':'')+'</td>'+
-        '<td class="n"><b>'+num(g.n)+'</b></td><td class="n">'+num(g.nHors)+'</td><td class="n">'+num(g.nAdr)+'</td><td class="n">'+num(g.q15*4)+'</td>'+
+        '<td class="n"><b>'+num(g.n)+'</b></td><td class="n">'+num(g.nHors)+'</td><td class="n">'+num(g.nAdr)+'</td>'+
+        '<td class="n"'+(g.nExcl?' title="'+esc([...g.exclBy.entries()].sort((a,b)=>b[1]-a[1]).map(([t,n])=>t+' : '+n).join(' · '))+'"':'')+'>'+(g.nExcl?'<span class="tag big" style="margin-left:0">'+num(g.nExcl)+'</span>':'<span class="muted">0</span>')+'</td>'+
+        '<td class="n">'+num(g.q15*4)+'</td>'+
         '<td>'+fmtH(g.first)+'</td><td>'+fmtHs(g.lastScan)+'</td><td>'+fmtHs(g.lastRecv)+'</td><td>'+st+'</td><td>'+btn+'</td></tr>';
     }).join('')+
-    '<tr class="tot"><td>Total</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.n,0))+'</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.nHors,0))+'</td><td class="n">'+num(L.nAdr)+'</td><td class="n">'+num(L.q15*4)+'</td><td colspan="5"></td></tr>'+
+    '<tr class="tot"><td>Total</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.n,0))+'</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.nHors,0))+'</td><td class="n">'+num(L.nAdr)+'</td><td class="n">'+num(L.trieurs.reduce((s,g)=>s+g.nExcl,0))+'</td><td class="n">'+num(L.q15*4)+'</td><td colspan="5"></td></tr>'+
     '</tbody></table>'+(L.dups.length?'<div class="note">Le total par trieur compte '+num(L.dups.reduce((s,d)=>s+d.o.length-1,0))+' doublon(s) entre trieurs : il dépasse d\'autant les « colis triés ».</div>':'');
 }
 $('tTrieurs').addEventListener('click',e=>{
