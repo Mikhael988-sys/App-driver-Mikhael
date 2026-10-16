@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Feuilles de route</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2330;--border:rgba(255,255,255,.1);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#3fb950;--err:#f85149}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.45}
+header{background:var(--surf);border-bottom:2px solid var(--accent);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:19px;font-weight:800;flex:1;min-width:200px}
+a.btn{text-decoration:none}
+.wrap{max-width:1400px;margin:0 auto;padding:18px 16px 40px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px}
+@media(max-width:950px){.wrap{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+.panel h3{font-size:15px;font-weight:800;margin-bottom:8px}
+.drop{border:2px dashed var(--border);border-radius:10px;padding:14px 12px;text-align:center;color:var(--muted);cursor:pointer;transition:all .15s}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--fg);background:rgba(240,180,41,.05)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit}
+.btn:hover{border-color:rgba(255,255,255,.25)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
+.btn.danger{color:var(--err);border-color:var(--err);background:rgba(248,81,73,.1)}
+.btn.sm{padding:5px 8px;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:10px 0 4px}
+input[type=date],input[type=text],input[type=email],input[type=password],select{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;color-scheme:dark;font-family:inherit}
+.row2{display:flex;gap:8px}.row2>*{flex:1;min-width:0}
+.muted{color:var(--muted)}
+.neg{color:var(--err)}.pos{color:var(--ok)}
+.step{font-size:13px;margin-top:8px;line-height:1.6}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(240,180,41,.15);color:var(--accent);margin-left:4px}
+.tag.err{background:rgba(248,81,73,.15);color:var(--err)}
+.tag.ok{background:rgba(63,185,80,.15);color:var(--ok)}
+.tag.mut{background:rgba(255,255,255,.08);color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 7px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:bottom}
+td{padding:7px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+td.n,th.n{text-align:right}
+td.wr{white-space:normal}
+tr.dim td{color:var(--muted)}
+.tbl{overflow-x:auto}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+.pill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);color:var(--muted);white-space:nowrap}
+.banner{border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14px;font-weight:700;border:2px solid var(--accent);background:rgba(240,180,41,.1);color:var(--accent)}
+.banner.err{border-color:var(--err);background:rgba(248,81,73,.1);color:var(--err)}
+.sess{border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:var(--surf2);font-size:12px;margin-top:6px;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.sess.on{border-color:var(--accent)}
+.sess b{font-family:'Courier New',monospace;font-size:13px}
+.acts{display:flex;gap:5px;flex-wrap:wrap}
+.drv{width:150px;padding:5px 8px;font-size:13px}
+#login{max-width:380px;margin:9vh auto;padding:0 16px}
+#qrFull{display:none;position:fixed;inset:0;background:#fff;z-index:4000;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:10px;color:#000}
+#qrFull canvas{width:min(78vw,68vh);height:auto;image-rendering:pixelated}
+#qrTitle{font-size:28px;font-weight:900;font-family:'Courier New',monospace;text-align:center}
+#qrSub{font-size:16px;font-weight:700;text-align:center}
+#qrFull .btn{font-size:18px;padding:12px 20px;background:#0d1117;color:#fff;border-color:#0d1117}
+#qrFull .btn.primary{background:var(--accent);color:#0d1117;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🗺 Feuilles de route</h1>
+  <a class="btn" href="suivi_tri.html">📡 Suivi en direct</a>
+  <a class="btn" href="remuneration_tri_Sadek_v4.html">💶 Paie</a>
+  <span class="muted" id="userMail" style="font-size:12px"></span>
+  <button class="btn" id="btnLogout" style="display:none">Déconnexion</button>
+</header>
+
+<!-- ══ CONNEXION ══ -->
+<div id="login">
+  <form class="panel" id="loginForm">
+    <h3>🔒 Connexion</h3>
+    <label class="f" for="lEmail">E-mail</label>
+    <input type="email" id="lEmail" autocomplete="username" required/>
+    <label class="f" for="lPass">Mot de passe</label>
+    <input type="password" id="lPass" autocomplete="current-password" required/>
+    <button class="btn primary" id="btnLogin" type="submit" style="margin-top:14px;width:100%;justify-content:center">Se connecter</button>
+    <div id="loginErr" class="neg" style="font-weight:700;font-size:13px;margin-top:10px;min-height:18px"></div>
+  </form>
+</div>
+
+<!-- ══ PAGE ══ -->
+<div class="wrap" id="app" style="display:none">
+  <div>
+    <div class="panel">
+      <h2>Jour de livraison</h2>
+      <div class="row2">
+        <div><label class="f" style="margin-top:0" for="date">Date</label><input type="date" id="date"/></div>
+        <div><label class="f" style="margin-top:0" for="xpt">XPT</label><select id="xpt"></select></div>
+      </div>
+      <div class="note">Les liens sont valables jusqu'à minuit (heure de Paris) ce jour-là.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Import du matin</h2>
+      <h3>1. JSON des tournées du tri</h3>
+      <input type="file" id="jsonInput" accept=".json" style="display:none"/>
+      <div class="drop" id="dropJson">📂 Glissez le JSON des tournées<br/><span style="font-size:12px">tournée, ordre de passage, adresse</span></div>
+      <div class="step" id="stJson"></div>
+
+      <h3 style="margin-top:14px">2. Export EPOD_TASK_LIST (.xlsx)</h3>
+      <input type="file" id="epodInput" accept=".xlsx,.xls" style="display:none"/>
+      <div class="drop" id="dropEpod">📂 Glissez l'export EPOD<br/><span style="font-size:12px">contacts clients (nom, téléphone, e-mail)</span></div>
+      <div class="step" id="stEpod"></div>
+
+      <h3 style="margin-top:14px">3. Colis ajoutés au tri</h3>
+      <div class="muted" style="font-size:12px">Colis hors liste rattachés à une tournée pendant le tri. Session la plus récente de l'XPT présélectionnée ; choisissez-en une autre si besoin.</div>
+      <div id="sessList"></div>
+      <div class="step" id="stAjouts"></div>
+    </div>
+  </div>
+
+  <div>
+    <div id="banners"></div>
+    <div class="panel" id="apercuPanel" style="display:none">
+      <h3>Aperçu de l'import</h3>
+      <div class="tbl" id="tApercu"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+        <button class="btn primary" id="btnSave">☁ Enregistrer dans Supabase</button>
+        <span class="muted" style="font-size:12px" id="saveInfo"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="flex:1;margin:0" id="listTitle">Tournées</h3>
+        <button class="btn sm" id="btnAllLinks">🔗 Créer tous les liens</button>
+        <button class="btn sm" id="btnQrAll">🔳 QR codes à la suite</button>
+        <button class="btn sm" id="btnReload">🔄 Actualiser</button>
+      </div>
+      <div class="tbl" id="tTours"></div>
+      <div class="note">Un lien par tournée et par jour. « Envoyer par SMS » ouvre l'appli SMS avec le message et le lien : choisissez le destinataire. « Régénérer » rend l'ancien lien inutilisable ; « Révoquer » le coupe tout de suite (« Réactiver » pour le rétablir). Le nom du driver est facultatif et s'affiche sur sa feuille.</div>
+    </div>
+  </div>
+</div>
+
+<div id="qrFull">
+  <div id="qrTitle"></div>
+  <div id="qrSub"></div>
+  <div id="qrBox"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button class="btn" id="qrPrev">‹ Précédent</button>
+    <button class="btn primary" id="qrNext">Suivant ›</button>
+    <button class="btn" id="qrClose">✕ Fermer</button>
+  </div>
+</div>
+
+<script>
+// ══════════════ CONFIGURATION ══════════════
+const XPT_LIST=['XPT22','XPT23','XPT35'];
+const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
+const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';
+// Adresse publique de la feuille du driver (GitHub Pages)
+const FR_URL='https://mikhael988-sys.github.io/App-driver-Mikhael/feuille_route.html';
+const SMS_MSG='Bonjour{driver}, voici ta feuille de route du {date} (tournée {tournee}) : {lien}';
+const PAGE=1000;
+const EXCL_DEF=['BACKLOG','NAVETTE','WRONG HUB'];
+
+// ══════════════ UTILITAIRES ══════════════
+const $=id=>document.getElementById(id);
+const num=v=>v.toLocaleString('fr-FR');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const normCode=s=>String(s||'').replace(/[​﻿\xa0\r\n\t]/g,'').trim().replace(/\s+/g,'').toUpperCase();
+const normHead=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().replace(/\s+/g,' ').toLowerCase();
+const pad=n=>String(n).padStart(2,'0');
+const fmtD=iso=>{if(!iso) return '?';const a=String(iso).slice(0,10).split('-');return a[2]+'/'+a[1]+'/'+a[0];};
+const fmtH=ms=>{if(!ms) return '—';const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes());};
+function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+const natCmp=(a,b)=>String(a).localeCompare(String(b),'fr',{numeric:true});
+const isTest=c=>/^TEST/i.test(c||'');
+const toNum=v=>{const n=parseFloat(String(v==null?'':v).replace(',','.')); return isFinite(n)&&n!==0?n:null;};
+const cleanTxt=v=>{let s=String(v==null?'':v).trim(); return s;};
+const cleanZip=v=>{let s=cleanTxt(v).replace(/\.0+$/,''); if(/^\d{4}$/.test(s)) s='0'+s; return s;};
+// Tournées sans feuille de route : même règle que la paie (BACKLOG couvre aussi BACKLOG 42)
+let exclList=EXCL_DEF.slice();
+const normTour=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[\s_-]+/g,'');
+function exclOf(tour){
+  const n=normTour(tour); if(!n) return '';
+  for(const x of exclList){const e=normTour(x); if(e&&(n===e||(n.startsWith(e)&&/^\d+$/.test(n.slice(e.length))))) return x;}
+  return '';
+}
+// Arrêts : colis consécutifs à la même adresse (ou aux mêmes coordonnées) = un seul arrêt
+const stopKey=it=>(normHead(it.address)+'|'+normHead(it.zip_code))||'';
+function countStops(items){let n=0, prev=null; items.forEach(it=>{const k=stopKey(it); if(k!==prev||!k) n++; prev=k;}); return n;}
+
+// ══════════════ ÉTAT ══════════════
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
+let user=null;
+let tours=null, tourFile='';              // JSON : Map tournée → [{tn,pos,adr,cp,ville,lat,lon}]
+let epod=null;                            // {byWb,byLp,name,n}
+let sessions=[], sessSel='', ajouts=[], sessErr='';
+let dbArrets=[], dbJetons=new Map(), dbErr='', busy=false;
+let qrList=[], qrIdx=0;
+
+// ══════════════ CONNEXION ══════════════
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!sb){$('loginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';return;}
+  $('btnLogin').disabled=true; $('loginErr').textContent='';
+  const {error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});
+  $('btnLogin').disabled=false;
+  if(error) $('loginErr').textContent=/invalid login/i.test(error.message)?'E-mail ou mot de passe incorrect.':'Connexion impossible : '+error.message;
+  else $('lPass').value='';
+});
+$('btnLogout').addEventListener('click',()=>sb.auth.signOut());
+function onAuth(sess){
+  const u=sess&&sess.user||null;
+  if((u&&u.id)===(user&&user.id)) return;
+  user=u;
+  $('login').style.display=u?'none':'';
+  $('app').style.display=u?'':'none';
+  $('btnLogout').style.display=u?'':'none';
+  $('userMail').textContent=u?u.email:'';
+  if(u){loadExcl(); loadSessions(); loadDb();}
+}
+if(sb) sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>onAuth(s),0));
+else $('loginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';
+
+async function loadExcl(){
+  const {data,error}=await sb.from('tri_parametres').select('valeur,annule').eq('id','tournees_non_payees').maybeSingle();
+  if(!error&&data&&!data.annule&&Array.isArray(data.valeur)) exclList=data.valeur.map(String);
+  render();
+}
+
+// ══════════════ JOUR + XPT ══════════════
+$('xpt').innerHTML=XPT_LIST.map(x=>'<option value="'+x+'">'+x+'</option>').join('');
+$('date').value=localISO(new Date());
+try{const p=JSON.parse(localStorage.getItem('frAdmin_pick')||'{}'); if(XPT_LIST.includes(p.xpt)) $('xpt').value=p.xpt;}catch(e){}
+const curDate=()=>$('date').value, curXpt=()=>$('xpt').value;
+$('date').addEventListener('change',()=>loadDb());
+$('xpt').addEventListener('change',()=>{try{localStorage.setItem('frAdmin_pick',JSON.stringify({xpt:curXpt()}));}catch(e){} loadSessions(); loadDb();});
+
+// ══════════════ 1. JSON DES TOURNÉES (même format que l'appli mobile) ══════════════
+function parseTourPayload(raw){
+  if(Array.isArray(raw)) return raw.flatMap(parseTourPayload);
+  if(raw&&raw.colis&&raw.name) return [raw];
+  if(raw&&typeof raw==='object'){
+    const byTour={};
+    for(const[bc,v] of Object.entries(raw)){
+      if(!v||typeof v!=='object') continue;
+      const name=String(v.tournee||''); if(!name) continue;
+      if(!byTour[name]) byTour[name]={name,colis:[]};
+      byTour[name].colis.push({bc,pos:Number(v.position)||0,lat:Number(v.lat)||0,lon:Number(v.lon)||0,adr:v.adresse||v.adr||'',ville:v.ville||'',cp:v.cp||''});
+    }
+    return Object.values(byTour);
+  }
+  return [];
+}
+async function importJson(f){
+  let raw; try{raw=JSON.parse(await f.text());}catch(e){alert('Fichier JSON invalide.');return;}
+  const list=parseTourPayload(raw);
+  if(!list.length){alert('Aucune tournée trouvée dans ce fichier.');return;}
+  const m=new Map();
+  list.forEach(t=>{
+    const name=String(t.name).trim();
+    const items=(t.colis||[]).map((c,i)=>({tn:normCode(c.bc),pos:Number(c.pos)||i+1,adr:cleanTxt(c.adr),cp:cleanZip(c.cp),ville:cleanTxt(c.ville),lat:toNum(c.lat),lon:toNum(c.lon)})).filter(c=>c.tn);
+    items.sort((a,b)=>a.pos-b.pos);
+    m.set(name,(m.get(name)||[]).concat(items));
+  });
+  tours=m; tourFile=f.name; render();
+}
+setupDrop('dropJson','jsonInput',importJson);
+
+// ══════════════ 2. EXPORT EPOD : contacts par Waybill, puis LP No. ══════════════
+const EPOD_COLS={wb:'waybill number',lp:'lp no.',address:'address',zip:'destination zip code',city:'destination city',
+  name:'contact name',phone:'contact phone',email:'contact email',lat:'receiver to latitude',lon:'receiver to longitude'};
+async function importEpod(f){
+  if(typeof XLSX==='undefined'){alert('Lecture Excel indisponible (bibliothèque non chargée : connexion internet ?)');return;}
+  let wb; try{wb=XLSX.read(await f.arrayBuffer(),{type:'array'});}catch(e){alert('Fichier Excel illisible.');return;}
+  const names=[wb.SheetNames.find(n=>normHead(n)==='epod_task_list_v2'),...wb.SheetNames].filter(Boolean);
+  for(const n of names){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:false});
+    for(let h=0;h<Math.min(10,rows.length);h++){
+      const head=rows[h].map(normHead), idx={};
+      Object.entries(EPOD_COLS).forEach(([k,c])=>{idx[k]=head.indexOf(c); if(idx[k]<0&&k==='lp') idx[k]=head.indexOf('lp no');});
+      if(idx.wb<0) continue;
+      // seules les colonnes utiles sont gardées ; le reste du fichier n'est jamais conservé
+      const byWb=new Map(), byLp=new Map();
+      rows.slice(h+1).forEach(r=>{
+        const g=k=>idx[k]>=0?r[idx[k]]:'';
+        const wbn=normCode(g('wb')); if(!wbn) return;
+        const rec={wb:wbn,lp:normCode(g('lp'))||null,address:cleanTxt(g('address')),zip:cleanZip(g('zip')),city:cleanTxt(g('city')),
+          name:cleanTxt(g('name')),phone:cleanTxt(g('phone')),email:cleanTxt(g('email')),lat:toNum(g('lat')),lon:toNum(g('lon'))};
+        byWb.set(wbn,rec); if(rec.lp) byLp.set(rec.lp,rec);
+      });
+      epod={byWb,byLp,name:f.name,n:byWb.size}; render(); return;
+    }
+  }
+  alert('Ce fichier n\'est pas un export EPOD_TASK_LIST (colonne « Waybill Number » introuvable).');
+}
+setupDrop('dropEpod','epodInput',importEpod);
+
+function setupDrop(dropId,inputId,fn){
+  const d=$(dropId), inp=$(inputId);
+  d.addEventListener('click',()=>inp.click());
+  inp.addEventListener('change',e=>{const f=e.target.files[0]; e.target.value=''; if(f) fn(f);});
+  ['dragover','dragenter'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove('over');}));
+  d.addEventListener('drop',e=>{const f=e.dataTransfer.files[0]; if(f) fn(f);});
+}
+
+// ══════════════ 3. COLIS AJOUTÉS AU TRI (sessions de l'XPT) ══════════════
+async function loadSessions(){
+  if(!user) return;
+  const xpt=curXpt(), since=new Date(Date.now()-5*86400000).toISOString(), m=new Map();
+  sessErr=''; sessions=[]; renderSessions();
+  let off=0;
+  for(;;){
+    const {data,error}=await sb.from('scans').select('session_code,work_date,scanned_at').ilike('session_code',xpt+'-%')
+      .gte('received_at',since).order('received_at').order('id').range(off,off+PAGE-1);
+    if(xpt!==curXpt()) return;
+    if(error){sessErr=error.message;break;}
+    data.forEach(r=>{
+      if(!isTest(xpt)&&isTest(r.session_code)) return;
+      const t=Date.parse(r.scanned_at)||0;
+      let s=m.get(r.session_code); if(!s){s={code:r.session_code,date:r.work_date,n:0,first:t,last:t};m.set(r.session_code,s);}
+      s.n++; if(t&&t<s.first) s.first=t; if(t>s.last) s.last=t;
+    });
+    if(!data.length) break;
+    off+=data.length;
+  }
+  sessions=[...m.values()].sort((a,b)=>b.last-a.last);
+  // présélection : la session la plus récente (dernier scan avant l'import)
+  const now=Date.now(), recent=sessions.find(s=>s.last<=now+5*60000)||sessions[0];
+  if(!sessions.some(s=>s.code===sessSel)) sessSel=recent?recent.code:'';
+  await loadAjouts();
+}
+async function loadAjouts(){
+  ajouts=[];
+  const code=sessSel;
+  if(code){
+    const m=new Map(); let off=0;
+    for(;;){
+      const {data,error}=await sb.from('scans').select('id,tn,tournee,adresse,scanned_at,received_at').eq('session_code',code).eq('kind','hors')
+        .order('received_at').order('id').range(off,off+PAGE-1);
+      if(code!==sessSel) return;
+      if(error){sessErr=error.message;break;}
+      data.forEach(r=>{
+        const tn=normCode(r.tn); if(!tn) return;
+        const t=Date.parse(r.scanned_at)||Date.parse(r.received_at)||0;
+        let a=m.get(tn); if(!a){a={tn,t,tour:'',adr:''};m.set(tn,a);}
+        if(t&&t<a.t) a.t=t;
+        if(r.tournee) a.tour=String(r.tournee);   // dernière tournée connue
+        if(r.adresse) a.adr=String(r.adresse);
+      });
+      if(!data.length) break;
+      off+=data.length;
+    }
+    ajouts=[...m.values()].filter(a=>a.tour).sort((a,b)=>a.t-b.t);
+  }
+  renderSessions(); render();
+}
+function renderSessions(){
+  $('sessList').innerHTML=sessErr?'<div class="neg" style="font-size:12px;margin-top:6px">Lecture impossible : '+esc(sessErr)+'</div>':
+    sessions.length?sessions.slice(0,8).map(s=>'<label class="sess'+(s.code===sessSel?' on':'')+'"><input type="radio" name="sess" value="'+esc(s.code)+'"'+(s.code===sessSel?' checked':'')+'/>'+
+      '<span><b>'+esc(s.code)+'</b><br/>tri du '+fmtD(s.date)+' · '+new Date(s.first).toLocaleDateString('fr-FR')+' '+fmtH(s.first)+' → '+(new Date(s.last).toDateString()!==new Date(s.first).toDateString()?new Date(s.last).toLocaleDateString('fr-FR')+' ':'')+fmtH(s.last)+
+      ' · '+num(s.n)+' lignes</span></label>').join('')+
+      '<label class="sess'+(sessSel===''?' on':'')+'"><input type="radio" name="sess" value=""'+(sessSel===''?' checked':'')+'/><span>Aucune session (pas de colis ajoutés au tri)</span></label>'
+    :'<div class="muted" style="font-size:12px;margin-top:6px">'+(user?'Aucune session '+esc(curXpt())+' ces 5 derniers jours.':'')+'</div>';
+}
+$('sessList').addEventListener('change',e=>{if(e.target.name==='sess'){sessSel=e.target.value; renderSessions(); loadAjouts();}});
+
+// ══════════════ CONSTRUCTION DES ARRÊTS ══════════════
+function enrich(it){
+  const e=epod&&(epod.byWb.get(it.tn)||epod.byLp.get(it.tn));
+  it.epod_trouve=!!e;
+  it.lp_no=e?e.lp:null; it.contact_name=e?e.name:''; it.contact_phone=e?e.phone:''; it.contact_email=e?e.email:'';
+  if(e){
+    if(!it.address) it.address=e.address;
+    if(!it.zip_code) it.zip_code=e.zip;
+    if(!it.city) it.city=e.city;
+    if(!it.lat||!it.lon){it.lat=e.lat; it.lon=e.lon;}
+  }
+  return it;
+}
+function buildImport(){
+  if(!tours) return null;
+  const T=new Map(), inJson=new Set();
+  tours.forEach(list=>list.forEach(c=>inJson.add(c.tn)));
+  tours.forEach((list,name)=>{
+    T.set(name,{name,excl:exclOf(name),items:list.map(c=>enrich({tn:c.tn,position:Math.round(c.pos)||null,origine:'liste',
+      address:c.adr,zip_code:c.cp,city:c.ville,lat:c.lat,lon:c.lon,scan_heure:null}))});
+  });
+  ajouts.filter(a=>!inJson.has(a.tn)).forEach(a=>{
+    let t=T.get(a.tour); if(!t){t={name:a.tour,excl:exclOf(a.tour),items:[]};T.set(a.tour,t);}
+    t.items.push(enrich({tn:a.tn,position:null,origine:'ajout_tri',address:a.adr,zip_code:'',city:'',lat:null,lon:null,scan_heure:new Date(a.t).toISOString()}));
+  });
+  return [...T.values()].sort((a,b)=>(!!a.excl-!!b.excl)||natCmp(a.name,b.name));
+}
+
+// ══════════════ ENREGISTREMENT ══════════════
+const ROW_COLS=['tn','position','origine','address','zip_code','city','lat','lon','lp_no','contact_name','contact_phone','contact_email','epod_trouve','scan_heure'];
+async function saveImport(){
+  const T=buildImport(); if(!T) return;
+  const date=curDate(), xpt=curXpt(), keep=T.filter(t=>!t.excl&&t.items.length);
+  if(!date){alert('Indiquez le jour de livraison.');return;}
+  const nColis=keep.reduce((s,t)=>s+t.items.length,0);
+  if(!confirm('Enregistrer '+keep.length+' tournée(s), '+nColis+' colis, pour le '+fmtD(date)+' ('+xpt+') ?\n\n'+
+    'Les tournées déjà enregistrées ce jour-là sont remplacées par cet import ; les liens déjà envoyés restent valables.'+
+    (epod?'':'\n\n⚠ Aucun export EPOD chargé : les feuilles n\'auront pas les contacts clients.'))) return;
+  busy=true; render();
+  try{
+    const rows=new Map();
+    keep.forEach(t=>t.items.forEach(it=>{
+      const id=date+'|'+xpt+'|'+it.tn; if(rows.has(id)) return;   // un TN dans deux tournées : la première est gardée
+      const r={id,task_date:date,xpt,tournee:t.name,annule:false}; ROW_COLS.forEach(c=>{r[c]=it[c]===undefined?null:it[c];});
+      rows.set(id,r);
+    }));
+    const list=[...rows.values()];
+    for(let i=0;i<list.length;i+=500){
+      $('saveInfo').textContent='⏳ Envoi '+Math.min(i+500,list.length)+' / '+list.length+'…';
+      const {error}=await sb.from('fr_arrets').upsert(list.slice(i,i+500)); if(error) throw error;
+    }
+    // tournées réimportées : les colis qui n'y figurent plus sont masqués
+    const names=keep.map(t=>t.name), old=[]; let off=0;
+    for(;;){
+      const {data,error}=await sb.from('fr_arrets').select('id').eq('task_date',date).eq('xpt',xpt).in('tournee',names).eq('annule',false).order('id').range(off,off+PAGE-1);
+      if(error) throw error; data.forEach(r=>{if(!rows.has(r.id)) old.push(r.id);});
+      if(!data.length) break; off+=data.length;
+    }
+    for(let i=0;i<old.length;i+=200){const {error}=await sb.from('fr_arrets').update({annule:true}).in('id',old.slice(i,i+200)); if(error) throw error;}
+    $('saveInfo').textContent='✓ Enregistré : '+list.length+' colis'+(old.length?' · '+old.length+' retirés des tournées réimportées':'');
+  }catch(e){$('saveInfo').textContent=''; alert('Enregistrement impossible : '+(e.message||e));}
+  busy=false; await loadDb();
+}
+$('btnSave').addEventListener('click',saveImport);
+
+// ══════════════ TOURNÉES ENREGISTRÉES ET LIENS ══════════════
+async function loadDb(){
+  if(!user) return;
+  const date=curDate(), xpt=curXpt(); dbErr='';
+  const arr=[]; let off=0;
+  try{
+    for(;;){
+      const {data,error}=await sb.from('fr_arrets').select('tournee,tn,origine,epod_trouve,address,zip_code,position,scan_heure,contact_phone')
+        .eq('task_date',date).eq('xpt',xpt).eq('annule',false).order('id').range(off,off+PAGE-1);
+      if(error) throw error; arr.push(...data); if(!data.length) break; off+=data.length;
+    }
+    const {data:jet,error}=await sb.from('fr_jetons').select('*').eq('task_date',date).eq('xpt',xpt);
+    if(error) throw error;
+    if(date!==curDate()||xpt!==curXpt()) return;
+    dbArrets=arr; dbJetons=new Map(jet.map(j=>[j.tournee,j]));
+  }catch(e){dbErr=e.message||String(e); dbArrets=[]; dbJetons=new Map();}
+  render();
+}
+$('btnReload').addEventListener('click',()=>{loadSessions(); loadDb();});
+function dbTours(){
+  const m=new Map();
+  dbArrets.forEach(a=>{let t=m.get(a.tournee); if(!t){t={name:a.tournee,items:[]};m.set(a.tournee,t);} t.items.push(a);});
+  const list=[...m.values()];
+  list.forEach(t=>{
+    t.items.sort((a,b)=>((a.origine==='ajout_tri')-(b.origine==='ajout_tri'))||((a.position||1e9)-(b.position||1e9))||String(a.scan_heure||'').localeCompare(String(b.scan_heure||'')));
+    t.n=t.items.length; t.stops=countStops(t.items);
+    t.noEpod=t.items.filter(a=>!a.epod_trouve).length; t.ajout=t.items.filter(a=>a.origine==='ajout_tri').length;
+  });
+  return list.sort((a,b)=>natCmp(a.name,b.name));
+}
+const linkOf=j=>FR_URL+'?t='+encodeURIComponent(j.jeton);
+function newToken(){const b=new Uint8Array(32); crypto.getRandomValues(b); return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function jetonState(j){
+  if(!j) return {txt:'Pas encore de lien',cls:'mut'};
+  if(j.revoque) return {txt:'Révoqué',cls:'err'};
+  if(Date.now()>=Date.parse(j.expire_le)) return {txt:'Expiré',cls:'mut'};
+  return {txt:'Valable jusqu\'à minuit (fin du '+fmtD(j.task_date)+')',cls:'ok'};
+}
+// Crée le lien s'il n'existe pas (insertion seule : un lien créé sur un autre poste n'est jamais écrasé)
+async function ensureJeton(tour){
+  let j=dbJetons.get(tour); if(j) return j;
+  const date=curDate(), xpt=curXpt();
+  const {data,error}=await sb.from('fr_jetons').insert({id:date+'|'+xpt+'|'+tour,task_date:date,xpt,tournee:tour,driver_nom:'',jeton:newToken(),revoque:false,annule:false}).select().single();
+  if(error&&error.code!=='23505'){alert('Création du lien impossible : '+error.message);return null;}
+  if(error){await loadDb(); return dbJetons.get(tour)||null;}
+  dbJetons.set(tour,data); return data;
+}
+async function updJeton(tour,patch){
+  const j=dbJetons.get(tour); if(!j) return null;
+  const {data,error}=await sb.from('fr_jetons').update(patch).eq('id',j.id).select().single();
+  if(error){alert('Modification impossible : '+error.message);return null;}
+  dbJetons.set(tour,data); render(); return data;
+}
+function smsBody(j){
+  return SMS_MSG.replace('{driver}',j.driver_nom?' '+j.driver_nom:'').replace('{date}',fmtD(j.task_date)).replace('{tournee}',j.tournee).replace('{lien}',linkOf(j));
+}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t); return true;}
+  catch(e){const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); let ok=false; try{ok=document.execCommand('copy');}catch(_){} ta.remove(); return ok;}
+}
+
+$('tTours').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const tour=b.dataset.t, act=b.dataset.act;
+  if(act==='sms'){const j=await ensureJeton(tour); if(j){render(); location.href='sms:?&body='+encodeURIComponent(smsBody(j));}}
+  else if(act==='copy'){const j=await ensureJeton(tour); if(j){render(); const ok=await copyText(linkOf(j)); b.textContent=ok?'✓ Copié':'Copie impossible'; setTimeout(render,1500);}}
+  else if(act==='qr'){const list=sheetTours(); qrList=list.map(t=>t.name); qrIdx=Math.max(0,qrList.indexOf(tour)); showQr();}
+  else if(act==='regen'){
+    if(!confirm('Régénérer le lien de la tournée '+tour+' ?\nL\'ancien lien ne fonctionnera plus : il faudra envoyer le nouveau au driver.')) return;
+    await updJeton(tour,{jeton:newToken(),revoque:false});
+  }
+  else if(act==='revoke'){if(confirm('Révoquer le lien de la tournée '+tour+' ? Le driver n\'aura plus accès à sa feuille.')) await updJeton(tour,{revoque:true});}
+  else if(act==='unrevoke') await updJeton(tour,{revoque:false});
+});
+$('tTours').addEventListener('change',async e=>{
+  const inp=e.target.closest('[data-drv]'); if(!inp) return;
+  const tour=inp.dataset.drv, v=inp.value.trim();
+  const j=await ensureJeton(tour); if(j&&j.driver_nom!==v) await updJeton(tour,{driver_nom:v}); else render();
+});
+const sheetTours=()=>dbTours().filter(t=>!exclOf(t.name));
+$('btnAllLinks').addEventListener('click',async()=>{
+  const list=sheetTours().filter(t=>!dbJetons.has(t.name));
+  if(!list.length){alert('Toutes les tournées ont déjà un lien.');return;}
+  for(const t of list) await ensureJeton(t.name);
+  render();
+});
+$('btnQrAll').addEventListener('click',()=>{qrList=sheetTours().map(t=>t.name); qrIdx=0; if(qrList.length) showQr(); else alert('Aucune tournée enregistrée pour ce jour.');});
+
+// ── QR code plein écran, avec « Suivant » pour enchaîner les drivers ──
+async function showQr(){
+  const tour=qrList[qrIdx]; if(tour==null) return;
+  $('qrFull').style.display='flex';
+  $('qrTitle').textContent='Tournée '+tour; $('qrSub').textContent='⏳'; $('qrBox').innerHTML='';
+  const j=await ensureJeton(tour); if(!j){$('qrFull').style.display='none';return;}
+  const st=jetonState(j);
+  $('qrSub').textContent=(j.driver_nom?j.driver_nom+' · ':'')+fmtD(j.task_date)+' · '+j.xpt+' · '+(qrIdx+1)+' / '+qrList.length+(st.cls==='ok'?'':' · ⚠ '+st.txt);
+  const qr=qrcode(0,'M'); qr.addData(linkOf(j),'Byte'); qr.make();
+  const n=qr.getModuleCount(), cell=8, margin=4, size=(n+margin*2)*cell, cv=document.createElement('canvas');
+  cv.width=size; cv.height=size; const ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size); ctx.fillStyle='#000';
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(qr.isDark(r,c)) ctx.fillRect((c+margin)*cell,(r+margin)*cell,cell,cell);
+  $('qrBox').appendChild(cv);
+  $('qrPrev').style.visibility=qrIdx>0?'visible':'hidden';
+  $('qrNext').textContent=qrIdx<qrList.length-1?'Suivant ›':'Terminer';
+  render();
+}
+$('qrNext').addEventListener('click',()=>{if(qrIdx<qrList.length-1){qrIdx++; showQr();} else $('qrFull').style.display='none';});
+$('qrPrev').addEventListener('click',()=>{if(qrIdx>0){qrIdx--; showQr();}});
+$('qrClose').addEventListener('click',()=>{$('qrFull').style.display='none';});
+
+// ══════════════ AFFICHAGE ══════════════
+function render(){
+  if(!user) return;
+  // étapes d'import
+  const allJson=tours?[...tours.values()].reduce((s,l)=>s+l.length,0):0;
+  $('stJson').innerHTML=tours?'✅ <b>'+tours.size+'</b> tournée(s) · <b>'+num(allJson)+'</b> colis<br/><span class="muted">'+esc(tourFile)+'</span>':'<span class="muted">Aucun JSON chargé.</span>';
+  let found=0, notFound=0;
+  if(tours&&epod) tours.forEach(l=>l.forEach(c=>{(epod.byWb.has(c.tn)||epod.byLp.has(c.tn))?found++:notFound++;}));
+  $('stEpod').innerHTML=epod?'✅ <b>'+num(epod.n)+'</b> colis dans l\'export<br/><span class="muted">'+esc(epod.name)+'</span>'+
+    (tours?'<br/>Correspondance : <b>'+num(found)+'</b> / '+num(allJson)+(notFound?' · <span class="neg"><b>'+num(notFound)+'</b> colis sans contact EPOD</span>':''):'')
+    :'<span class="muted">Aucun export chargé.</span>';
+  $('stAjouts').innerHTML=sessSel?'<b>'+ajouts.length+'</b> colis hors liste rattachés à une tournée dans <b>'+esc(sessSel)+'</b>':'<span class="muted">Pas de colis ajoutés au tri.</span>';
+
+  // aperçu
+  const T=buildImport();
+  $('apercuPanel').style.display=T?'':'none';
+  if(T){
+    $('tApercu').innerHTML='<table><thead><tr><th>Tournée</th><th class="n">Colis</th><th class="n">Arrêts</th><th class="n">dont ajoutés<br/>au tri</th><th class="n">Sans contact<br/>EPOD</th><th class="n">Tél. invalides</th><th></th></tr></thead><tbody>'+
+      T.map(t=>{
+        const bad=t.items.filter(i=>i.epod_trouve&&!phoneOk(i.contact_phone)).length;
+        return '<tr'+(t.excl?' class="dim"':'')+'><td><b>'+esc(t.name)+'</b></td><td class="n">'+num(t.items.length)+'</td><td class="n">'+num(countStops(t.items))+'</td>'+
+          '<td class="n">'+num(t.items.filter(i=>i.origine==='ajout_tri').length)+'</td><td class="n">'+(epod?num(t.items.filter(i=>!i.epod_trouve).length):'—')+'</td><td class="n">'+(epod?num(bad):'—')+'</td>'+
+          '<td>'+(t.excl?'<span class="tag mut">pas de feuille (tournée non payée)</span>':'')+'</td></tr>';
+      }).join('')+'</tbody></table>';
+    $('btnSave').disabled=busy;
+  }
+
+  // tournées enregistrées
+  const date=curDate(), xpt=curXpt(), list=dbTours();
+  $('listTitle').textContent='Tournées enregistrées — '+fmtD(date)+' · '+xpt;
+  let ban='';
+  if(dbErr) ban+='<div class="banner err">⚠ Lecture impossible : '+esc(dbErr)+'</div>';
+  if(T&&!epod) ban+='<div class="banner">⚠ Export EPOD non chargé : les feuilles n\'auront pas les contacts clients.</div>';
+  $('banners').innerHTML=ban;
+  $('tTours').innerHTML=list.length?'<table><thead><tr><th>Tournée</th><th class="n">Arrêts</th><th class="n">Colis</th><th class="n">Ajoutés<br/>au tri</th><th class="n">Sans<br/>contact</th><th>Driver (facultatif)</th><th>Lien</th><th></th></tr></thead><tbody>'+
+    list.map(t=>{
+      const j=dbJetons.get(t.name), st=jetonState(j), ex=exclOf(t.name), tt=esc(t.name);
+      return '<tr'+(ex?' class="dim"':'')+'><td><b>'+tt+'</b></td><td class="n">'+num(t.stops)+'</td><td class="n">'+num(t.n)+'</td><td class="n">'+num(t.ajout)+'</td>'+
+        '<td class="n">'+(t.noEpod?'<span class="neg">'+num(t.noEpod)+'</span>':'0')+'</td>'+
+        '<td><input type="text" class="drv" data-drv="'+tt+'" value="'+esc(j?j.driver_nom:'')+'" placeholder="Nom"/></td>'+
+        '<td><span class="tag '+st.cls+'" style="margin-left:0">'+esc(st.txt)+'</span></td>'+
+        '<td>'+(ex?'<span class="tag mut">tournée non payée</span>':'<div class="acts">'+
+          '<button class="btn sm primary" data-act="sms" data-t="'+tt+'">💬 Envoyer par SMS</button>'+
+          '<button class="btn sm" data-act="copy" data-t="'+tt+'">📋 Copier le lien</button>'+
+          '<button class="btn sm" data-act="qr" data-t="'+tt+'">🔳 QR code</button>'+
+          (j?'<button class="btn sm" data-act="regen" data-t="'+tt+'">♻ Régénérer</button>'+
+            (j.revoque?'<button class="btn sm" data-act="unrevoke" data-t="'+tt+'">↩ Réactiver</button>':'<button class="btn sm danger" data-act="revoke" data-t="'+tt+'">⛔ Révoquer</button>'):'')+
+          '</div>')+'</td></tr>';
+    }).join('')+'</tbody></table>'
+    :'<div class="empty">Aucune tournée enregistrée pour le '+fmtD(date)+' ('+esc(xpt)+').<br/>Chargez le JSON des tournées et l\'export EPOD, puis « Enregistrer dans Supabase ».</div>';
+}
+// même règle que la feuille du driver
+function phoneOk(p){const d=String(p||'').replace(/\D/g,''); return d.length>=9&&d.length<=15&&!/^(\d)\1+$/.test(d);}
+</script>
+</body>
+</html>

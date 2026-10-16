@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#0d1117"/>
+<meta name="referrer" content="no-referrer"/>
+<meta name="robots" content="noindex"/>
+<title>Feuille de route</title>
+<style>
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1e2736;--border:rgba(255,255,255,.12);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#2ea84a;--err:#e53935;
+  --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;line-height:1.4;padding-bottom:calc(var(--safe-bot) + 24px)}
+.top{position:sticky;top:0;z-index:10;background:var(--surf);border-bottom:2px solid var(--accent);padding:calc(var(--safe-top) + 10px) 14px 10px}
+.top h1{font-size:18px;font-weight:800}
+.top .sub{font-size:13px;color:var(--muted);margin-top:2px}
+.prog{display:flex;align-items:center;gap:10px;margin-top:8px}
+.bar{flex:1;height:8px;background:var(--surf2);border-radius:4px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.prog b{font-size:14px;white-space:nowrap}
+.wrap{padding:12px;max-width:720px;margin:0 auto}
+.state{border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:10px;border:1px solid var(--border);background:var(--surf2);color:var(--muted)}
+.state.warn{border-color:var(--accent);color:var(--accent);background:rgba(240,180,41,.08)}
+.state.err{border-color:var(--err);color:var(--err);background:rgba(229,57,53,.1)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--muted)}
+.chk input{width:20px;height:20px;accent-color:var(--accent)}
+details.tpl{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:14px}
+details.tpl summary{cursor:pointer;font-weight:800;color:var(--muted)}
+details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:15px;font-family:inherit}
+.sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin:16px 2px 8px}
+.stop{background:var(--surf);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.stop.done{opacity:.5}
+.stop-h{display:flex;gap:10px;padding:12px 12px 6px;align-items:flex-start}
+.num{min-width:42px;height:42px;border-radius:10px;background:var(--surf2);color:var(--accent);font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center;font-family:'Courier New',monospace;flex-shrink:0}
+.addr{flex:1;min-width:0}
+.addr .a1{font-size:17px;font-weight:800;word-wrap:break-word}
+.addr .a2{font-size:14px;color:var(--muted)}
+.fait{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:800;color:var(--muted);flex-shrink:0}
+.fait input{width:30px;height:30px;accent-color:var(--ok)}
+.contact{padding:6px 12px 10px;border-top:1px solid var(--border)}
+.contact .who{font-size:15px;font-weight:700;margin:4px 0 6px}
+.contact .who small{font-weight:400;color:var(--muted)}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;font-weight:800;text-decoration:none;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:96px}
+.btn.call{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.nav{background:var(--accent);border-color:var(--accent);color:#0d1117}
+.colis{padding:4px 12px 10px;font-size:12px;color:var(--muted);font-family:'Courier New',monospace;word-break:break-all}
+.navrow{display:flex;gap:6px;padding:0 12px 12px}
+.empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.6}
+#toast{position:fixed;bottom:calc(var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;border:1px solid var(--border)}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1 id="title">🗺 Feuille de route</h1>
+  <div class="sub" id="sub"></div>
+  <div class="prog" id="prog" style="display:none"><div class="bar"><i id="barFill" style="width:0"></i></div><b id="progTxt"></b></div>
+</div>
+<div class="wrap">
+  <div id="state" class="state">⏳ Chargement…</div>
+  <div id="tools" style="display:none">
+    <div class="tools">
+      <label class="chk"><input type="checkbox" id="hideDone"/> Masquer les arrêts faits</label>
+      <button class="btn" id="btnRefresh" style="flex:0 0 auto;min-width:0">🔄 Actualiser</button>
+    </div>
+    <details class="tpl">
+      <summary>✉️ Message SMS type</summary>
+      <textarea id="smsTpl"></textarea>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">{nom} = nom du client · {adresse} = adresse. Mémorisé sur ce téléphone.</div>
+    </details>
+  </div>
+  <div id="list"></div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ══════════════ CONFIGURATION ══════════════
+const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
+const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';   // clé publique : la RPC ne renvoie rien sans jeton valide
+const SMS_DEF='Bonjour {nom}, je suis votre livreur, j\'arrive bientôt pour votre colis. Merci !';
+const CACHE_KEY='fr_feuille', DONE_KEY='fr_fait', TPL_KEY='fr_sms_tpl', GPS_KEY='fr_gps';
+
+// ══════════════ UTILITAIRES ══════════════
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const fmtD=iso=>{const a=String(iso||'').slice(0,10).split('-');return a.length===3?a[2]+'/'+a[1]+'/'+a[0]:'';};
+const fmtHM=ms=>{const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes());};
+const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().replace(/\s+/g,' ').toLowerCase();
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function lsGet(k,def){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?def:v;}catch(e){return def;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function toast(m){const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('show'),2000);}
+// Numéro utilisable : 9 à 15 chiffres, pas un seul chiffre répété (« . », « 0000000000 » refusés)
+function phoneOk(p){const d=String(p||'').replace(/\D/g,''); return d.length>=9&&d.length<=15&&!/^(\d)\1+$/.test(d);}
+const telOf=p=>{const s=String(p||'').trim(); return (s.startsWith('+')?'+':'')+s.replace(/\D/g,'');};
+const emailOk=e=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e||'').trim());
+// date du jour à Paris (AAAA-MM-JJ)
+const todayParis=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris'}).format(new Date());
+
+// ══════════════ JETON ET CACHE ══════════════
+const jeton=new URLSearchParams(location.search).get('t')||'';
+let data=null, fetchedAt=0, done={};
+// Les données d'un autre lien, ou d'un jour passé, ne restent pas sur le téléphone
+function purge(){try{localStorage.removeItem(CACHE_KEY); localStorage.removeItem(DONE_KEY);}catch(e){}}
+(function restore(){
+  const c=lsGet(CACHE_KEY,null);
+  if(!c||c.t!==jeton||!c.data||String(c.data.date)<todayParis()){ if(c) purge(); return; }
+  data=c.data; fetchedAt=c.at||0;
+  const d=lsGet(DONE_KEY,null); done=d&&d.t===jeton?d.done||{}:{};
+})();
+function saveDone(){lsSet(DONE_KEY,{t:jeton,done});}
+
+async function load(){
+  if(!jeton){showState('err','Lien incomplet : ouvrez le lien reçu par SMS ou scannez le QR code de votre chef d\'équipe.'); return;}
+  if(data) render();
+  showState(data?'':'', data?'⏳ Mise à jour…':'⏳ Chargement…');
+  const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),25000);
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/rpc/fr_feuille',{method:'POST',signal:ctl.signal,cache:'no-store',
+      headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_jeton:jeton})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const res=await r.json();
+    if(!res||res.statut!=='ok'){
+      // lien expiré, révoqué ou inconnu : on efface tout ce qui est gardé sur le téléphone
+      purge(); data=null; done={}; $('list').innerHTML=''; $('tools').style.display='none'; $('prog').style.display='none';
+      showState('err',res&&res.statut==='expire'?'⛔ Ce lien a expiré ou a été désactivé. Demandez un nouveau lien à votre chef d\'équipe.':'⛔ Lien inconnu. Vérifiez le lien reçu ou demandez-en un nouveau à votre chef d\'équipe.');
+      return;
+    }
+    data=res; fetchedAt=Date.now();
+    lsSet(CACHE_KEY,{t:jeton,at:fetchedAt,data});
+    showState('','✓ À jour ('+fmtHM(fetchedAt)+')');
+    render();
+  }catch(e){
+    if(data) showState('warn','📶 Réseau faible ou absent : version du '+fmtD(new Date(fetchedAt).toISOString())+' à '+fmtHM(fetchedAt)+'. Nouvel essai automatique.');
+    else showState('err','📶 Pas de réseau : impossible de charger la feuille. Réessayez dès que le réseau revient.');
+  }finally{clearTimeout(tm);}
+}
+function showState(cls,txt){const s=$('state'); s.className='state'+(cls?' '+cls:''); s.textContent=txt;}
+setInterval(()=>{if(document.visibilityState==='visible') load();},5*60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-fetchedAt>60000) load();});
+window.addEventListener('online',load);
+$('btnRefresh').addEventListener('click',load);
+
+// ══════════════ ARRÊTS ══════════════
+// colis consécutifs à la même adresse = un seul arrêt
+function buildStops(){
+  const stops=[];
+  (data.arrets||[]).forEach(a=>{
+    const key=a.origine+'|'+norm(a.adresse)+'|'+norm(a.cp), prev=stops[stops.length-1];
+    if(prev&&prev.key===key&&norm(a.adresse)) prev.colis.push(a);
+    else stops.push({key,origine:a.origine,colis:[a]});
+  });
+  return stops;
+}
+const stopDone=s=>s.colis.every(c=>done[c.tn]);
+const smsTpl=()=>lsGet(TPL_KEY,SMS_DEF);
+function smsHref(c){
+  const body=smsTpl().replace(/\{nom\}/g,c.nom||'').replace(/\{adresse\}/g,c.adresse||'').replace(/\s+,/g,',').replace(/ {2,}/g,' ').trim();
+  return 'sms:'+telOf(c.tel)+(isIOS?'&':'?')+'body='+encodeURIComponent(body);
+}
+function navHref(s,app){
+  const c=s.colis.find(x=>x.lat&&x.lon)||s.colis[0], q=[c.adresse,c.cp,c.ville].filter(Boolean).join(' ');
+  if(app==='waze') return c.lat&&c.lon?'https://waze.com/ul?ll='+c.lat+','+c.lon+'&navigate=yes':'https://waze.com/ul?q='+encodeURIComponent(q)+'&navigate=yes';
+  return 'https://www.google.com/maps/dir/?api=1&destination='+(c.lat&&c.lon?c.lat+','+c.lon:encodeURIComponent(q));
+}
+function render(){
+  if(!data) return;
+  document.title='Tournée '+data.tournee+' · Feuille de route';
+  $('title').textContent='🗺 Tournée '+data.tournee+(data.driver?' · '+data.driver:'');
+  $('sub').textContent=data.xpt+' · '+fmtD(data.date)+' · lien valable jusqu\'à minuit';
+  $('tools').style.display='';
+  if(document.activeElement!==$('smsTpl')) $('smsTpl').value=smsTpl();
+  const stops=buildStops(), nDone=stops.filter(stopDone).length, hide=$('hideDone').checked;
+  $('prog').style.display='';
+  $('barFill').style.width=(stops.length?nDone/stops.length*100:0)+'%';
+  $('progTxt').textContent=nDone+' / '+stops.length+' arrêts faits';
+  if(!stops.length){$('list').innerHTML='<div class="empty">Aucun arrêt sur cette feuille.</div>';return;}
+  let h='', sec='', idx=0;
+  stops.forEach((s,i)=>{
+    if(s.origine==='ajout_tri'&&sec!=='ajout'){sec='ajout'; h+='<div class="sec">➕ Ajoutés au tri</div>';}
+    const fait=stopDone(s); if(hide&&fait) return;
+    const a=s.colis[0], label=a.position||(++idx&&'+'+idx);
+    // contacts distincts de l'arrêt (plusieurs colis peuvent avoir le même client)
+    const contacts=[]; s.colis.forEach(c=>{const k=norm(c.nom)+'|'+String(c.tel||'').replace(/\D/g,'')+'|'+norm(c.email); if(!contacts.some(x=>x.k===k)) contacts.push({k,c});});
+    h+='<div class="stop'+(fait?' done':'')+'"><div class="stop-h"><div class="num">'+esc(label)+'</div><div class="addr">'+
+      '<div class="a1">'+(a.adresse?esc(a.adresse):'<span style="color:var(--muted)">Adresse inconnue</span>')+'</div>'+
+      '<div class="a2">'+esc([a.cp,a.ville].filter(Boolean).join(' '))+(s.colis.length>1?' · <b style="color:var(--accent)">'+s.colis.length+' colis</b>':'')+'</div></div>'+
+      '<label class="fait"><input type="checkbox" data-done="'+i+'"'+(fait?' checked':'')+'/>Fait</label></div>'+
+      contacts.map(({c})=>{
+        const tel=phoneOk(c.tel), mail=emailOk(c.email);
+        return '<div class="contact"><div class="who">'+(c.nom?esc(c.nom):'<small>Nom inconnu</small>')+(tel?' <small>· '+esc(c.tel)+'</small>':'')+'</div>'+
+          ((tel||mail)?'<div class="btns">'+
+            (tel?'<a class="btn call" href="tel:'+esc(telOf(c.tel))+'">📞 Appeler</a><a class="btn" href="'+esc(smsHref(c))+'">💬 SMS</a><button class="btn" data-copy="'+esc(c.tel)+'">📋 Numéro</button>':'')+
+            (mail?'<button class="btn" data-copy="'+esc(String(c.email).trim())+'">📋 E-mail</button>':'')+'</div>'
+            :'<div style="font-size:13px;color:var(--muted)">Pas de numéro ni d\'e-mail utilisable</div>')+'</div>';
+      }).join('')+
+      '<div class="colis">'+s.colis.map(c=>esc(c.tn)+(c.lp?' · '+esc(c.lp):'')).join('<br/>')+'</div>'+
+      '<div class="navrow"><a class="btn nav" href="'+esc(navHref(s,'gmaps'))+'" target="_blank" rel="noopener">🧭 Google Maps</a><a class="btn nav" href="'+esc(navHref(s,'waze'))+'" target="_blank" rel="noopener">🚗 Waze</a></div></div>';
+  });
+  $('list').innerHTML=h||'<div class="empty">✅ Tous les arrêts sont faits.</div>';
+}
+$('list').addEventListener('change',e=>{
+  const i=e.target.dataset.done; if(i==null) return;
+  const s=buildStops()[Number(i)]; s.colis.forEach(c=>{if(e.target.checked) done[c.tn]=Date.now(); else delete done[c.tn];});
+  saveDone(); render();
+});
+$('list').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-copy]'); if(!b) return;
+  const t=b.dataset.copy;
+  try{await navigator.clipboard.writeText(t); toast('Copié : '+t);}
+  catch(err){const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Copié : '+t);}catch(_){toast('Copie impossible');} ta.remove();}
+});
+$('hideDone').addEventListener('change',render);
+$('smsTpl').addEventListener('input',e=>lsSet(TPL_KEY,e.target.value));
+
+// ══════════════ HORS LIGNE : la page elle-même est gardée par un service worker (réseau d'abord) ══════════════
+if('serviceWorker' in navigator&&location.protocol==='https:'){
+  navigator.serviceWorker.register('feuille_route_sw.js').catch(()=>{});
+}
+load();
+</script>
+</body>
+</html>

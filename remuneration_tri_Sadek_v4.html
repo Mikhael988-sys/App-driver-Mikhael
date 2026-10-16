@@ -112,6 +112,7 @@ tr.dim td{color:var(--muted)}
   <h1>💶 Rémunération du tri <span class="tag">v4 · Supabase seul</span></h1>
   <span class="pill" id="storePill">…</span>
   <a class="btn" href="suivi_tri.html" style="text-decoration:none">📡 Suivi en direct</a>
+  <a class="btn" href="feuille_route_admin.html" style="text-decoration:none">🗺 Feuilles de route</a>
   <button class="btn" id="btnSave" title="Copie de secours des erreurs et ajustements (ils sont enregistrés dans Supabase)">💾 Sauvegarder corrections</button>
   <button class="btn" id="btnLoad" title="Importer un fichier de corrections (v1, v2 ou v3) dans la mémoire partagée">📂 Importer corrections</button>
   <input type="file" id="corrInput" accept=".json" style="display:none"/>
@@ -1186,6 +1187,18 @@ function renderEpodInfo(){
 }
 renderEpodInfo();
 const aliasesOf=t=>[...new Set([t,epod.lp2wb.get(t),epod.wb2lp.get(t)].filter(Boolean))];
+// Correspondance Waybill ↔ LP No. aussi lue dans les feuilles de route enregistrées (fr_arrets, 7 derniers jours), en mémoire seulement
+async function enrichFromArrets(toks){
+  if(!sbUser||!sbc||!toks.length) return;
+  for(let i=0;i<toks.length;i+=100){
+    const chunk=toks.slice(i,i+100);
+    for(const col of ['tn','lp_no']){
+      const {data,error}=await sbc.from('fr_arrets').select('tn,lp_no').in(col,chunk).not('lp_no','is',null).limit(1000);
+      if(error) return;   // table absente ou inaccessible : on garde l'export EPOD déposé
+      data.forEach(r=>{const w=normCode(r.tn), l=normCode(r.lp_no); if(w&&l){epod.wb2lp.set(w,l); epod.lp2wb.set(l,w);}});
+    }
+  }
+}
 
 // ══════════════ HISTORIQUE D'UN COLIS ET ARBITRAGE DES ERREURS ══════════════
 let colisCards=[], colisMsg='', hist={};
@@ -1238,6 +1251,7 @@ function buildHistory(aliases,rows){
   return list.sort((a,b)=>(a.t||0)-(b.t||0)||a.date.localeCompare(b.date));
 }
 async function colisSearch(){
+  await enrichFromArrets([...new Set($('cTns').value.split(/[\s,;]+/).map(normCode).filter(Boolean))]);
   const seen=new Set(), toks=[];
   $('cTns').value.split(/[\s,;]+/).map(normCode).filter(Boolean).forEach(t=>{const main=epod.lp2wb.get(t)||t; if(!seen.has(main)){seen.add(main);toks.push(t);}});
   if(!toks.length){alert('Collez au moins un TN.');return;}
