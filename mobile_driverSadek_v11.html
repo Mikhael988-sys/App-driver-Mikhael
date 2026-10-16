@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
@@ -126,7 +127,7 @@ html,body{height:100%;background:var(--bg);color:var(--fg);font-family:-apple-sy
 
 /* QR CAMERA */
 #qr-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-#qr-frame{width:70%;aspect-ratio:1;border:4px solid var(--accent);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
+#qr-frame{width:86%;aspect-ratio:1.6;border:4px solid var(--accent);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
 #qr-status-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:8px 12px;font-size:13px;font-weight:600;text-align:center;color:var(--fg)}
 canvas#qr-canvas{display:none}
 
@@ -988,17 +989,20 @@ async function startCam(){
   const statusBar=document.getElementById('qr-status-bar');
   statusBar.textContent='Accès caméra…';
   try{
+    // 1280×720 : nécessaire pour lire les barres fines d'un code-barres (le QR se lit aussi)
     qrStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480}}
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
     });
+    try{ await qrStream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){}
     const video=document.getElementById('qr-video');
     video.srcObject=qrStream;
     await video.play();
     document.getElementById('btnCamOn').style.display='none';
     document.getElementById('btnCamOff').style.display='';
-    statusBar.textContent='Pointez vers le QR code du colis…';
+    statusBar.textContent=SCAN_HINT;
     qrScanCnt=0; qrLastCode=''; qrLastTime=0;
     initQRCanvas();
+    await initBarcodeReader();
     scanQRLoop();
   }catch(err){
     statusBar.textContent='Caméra indisponible : '+(err.message||err);
@@ -1014,15 +1018,77 @@ function stopCam(){
   document.getElementById('btnCamOff').style.display='none';
 }
 
+const SCAN_HINT='Code-barres ou QR code du colis dans le cadre…';
 let qrCanvas=null, qrCtx=null, qrFrameCount=0, qrActive=false;
+let barCanvas=null, barCtx=null;
+// Lecteur de codes-barres : natif (Android / Chrome) sinon bibliothèque ZXing (iPhone, autres)
+let bdNative=null, zxReader=null, barMode='';
 
 function initQRCanvas(){
   qrCanvas=document.getElementById('qr-canvas');
   qrCanvas.width=640; qrCanvas.height=480;
   qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true});
+  barCanvas=document.createElement('canvas');
+  barCtx=barCanvas.getContext('2d',{willReadFrequently:true});
 }
 
-function scanQRLoop(){
+async function initBarcodeReader(){
+  if(barMode) return;
+  try{
+    if('BarcodeDetector' in window){
+      const sup=await BarcodeDetector.getSupportedFormats();
+      if(sup.includes('code_128')){
+        bdNative=new BarcodeDetector({formats:['code_128','code_39','itf','ean_13'].filter(f=>sup.includes(f))});
+        barMode='natif'; return;
+      }
+    }
+  }catch(e){}
+  if(window.ZXing){
+    const hints=new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.ITF]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+    zxReader=new ZXing.MultiFormatReader(); zxReader.setHints(hints);
+    barMode='zxing';
+  }
+}
+
+// Bande centrale de l'image (là où est le cadre), en pleine résolution, pour le code-barres
+function grabBand(video){
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const bh=Math.round(vh*0.42), by=Math.round((vh-bh)/2);
+  const scale=Math.min(1,1280/vw);
+  barCanvas.width=Math.round(vw*scale); barCanvas.height=Math.round(bh*scale);
+  barCtx.drawImage(video,0,by,vw,bh,0,0,barCanvas.width,barCanvas.height);
+  return barCanvas;
+}
+
+async function readBarcode(video){
+  if(barMode==='natif'){
+    const r=await bdNative.detect(video);
+    return r&&r.length?r[0].rawValue:'';
+  }
+  if(barMode==='zxing'){
+    try{
+      const src=new ZXing.HTMLCanvasElementLuminanceSource(grabBand(video));
+      const res=zxReader.decodeWithState(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(src)));
+      return res?res.getText():'';
+    }catch(e){ return ''; }   // NotFoundException : rien de lisible sur cette image
+  }
+  return '';
+}
+
+function onCodeRead(raw){
+  const now=Date.now();
+  if(raw===qrLastCode&&now-qrLastTime<=2500) return;
+  qrLastCode=raw; qrLastTime=now;
+  const statusBar=document.getElementById('qr-status-bar');
+  const decoded=normCode(raw);
+  const ok=doScan(decoded);
+  statusBar.textContent=(ok===false?'⛔ ':'✅ ')+decoded.substring(0,22)+(decoded.length>22?'…':'');
+  setTimeout(()=>{if(qrStream) statusBar.textContent=SCAN_HINT;},1800);
+}
+
+async function scanQRLoop(){
   if(!qrStream) return;
   qrFrame=requestAnimationFrame(scanQRLoop);
   qrFrameCount++;
@@ -1035,24 +1101,16 @@ function scanQRLoop(){
   const statusBar=document.getElementById('qr-status-bar');
   if(!video||video.readyState<2||video.videoWidth===0){qrActive=false;return;}
   try{
+    // 1. QR code (comme avant)
     qrCtx.drawImage(video,0,0,640,480);
     const imageData=qrCtx.getImageData(0,0,640,480);
     const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});
-    if(code&&code.data){
-      const now=Date.now();
-      if(code.data!==qrLastCode||now-qrLastTime>2500){
-        qrLastCode=code.data;
-        qrLastTime=now;
-        const decoded=normCode(code.data);
-        doScan(decoded);
-        statusBar.textContent='✅ '+decoded.substring(0,22)+(decoded.length>22?'…':'');
-        setTimeout(()=>{if(qrStream) statusBar.textContent='Pointez vers le QR code du colis…';},1800);
-      }
-    }else{
-      qrScanCnt++;
-      if(qrScanCnt%60===0)
-        statusBar.textContent='📷 Recherche… ('+Math.round(qrScanCnt/10)+'s)';
-    }
+    if(code&&code.data){ onCodeRead(code.data); return; }
+    // 2. sinon code-barres
+    const bar=await readBarcode(video);
+    if(bar){ onCodeRead(bar); return; }
+    qrScanCnt++;
+    if(qrScanCnt%60===0) statusBar.textContent='📷 Recherche… ('+Math.round(qrScanCnt/10)+'s) — rapprochez ou éloignez le téléphone';
   }catch(e){}finally{qrActive=false;}
 }
 
@@ -1124,8 +1182,19 @@ function escHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt
 // Les TN GOFO commencent par GFFR
 const isGofo=code=>/^GFFR/.test(code);
 
-function doScan(code){
-  if(!code) return;
+const TN_OK=/^(?:(?:DOFR|CNFR)\d{13}HD|GFFR\d{14})$/;
+function doScan(code,force){
+  if(!code) return false;
+  if(!force&&!TN_OK.test(code)){
+    // QR d'adresse, code d'un autre transporteur, lecture partielle… : pas enregistré
+    const m=document.getElementById('scanMain'),p=document.getElementById('scanPos');
+    m.textContent='PAS UN N° DE COLIS';m.className='scan-main err';
+    p.textContent=code.substring(0,40)+' — scannez le code-barres du TN';p.className='scan-pos err';
+    document.getElementById('scanBox').className='scan-box-inline err';
+    document.getElementById('scanGofo').classList.remove('on');
+    beepErr();
+    return false;
+  }
   const info=scanMap[code];
   const scanMain=document.getElementById('scanMain');
   const scanPos=document.getElementById('scanPos');
@@ -1169,6 +1238,11 @@ document.getElementById('btnScanClear').addEventListener('click',()=>{
 document.querySelectorAll('.back-btn').forEach(b=>b.addEventListener('click',stopCam));
 
 // ════ SAISIE MANUELLE ════
+function manualSubmit(code){
+  manualModal.style.display='none';
+  if(!TN_OK.test(code)&&!confirm('« '+code+' » n\'a pas le format d\'un numéro de colis (DOFR/CNFR…HD ou GFFR + 14 chiffres).\n\nL\'enregistrer quand même ?')) return;
+  doScan(code,true);
+}
 const manualModal=document.getElementById('manualModal');
 const manualInput=document.getElementById('manualInput');
 
@@ -1182,12 +1256,12 @@ document.getElementById('btnManualCancel').addEventListener('click',()=>{
 });
 document.getElementById('btnManualOk').addEventListener('click',()=>{
   const code=normCode(manualInput.value);
-  if(code){doScan(code);manualModal.style.display='none';}
+  if(code){manualSubmit(code);}
 });
 manualInput.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     const code=normCode(manualInput.value);
-    if(code){doScan(code);manualModal.style.display='none';}
+    if(code){manualSubmit(code);}
   }
 });
 manualModal.addEventListener('click',e=>{if(e.target===manualModal) manualModal.style.display='none';});
