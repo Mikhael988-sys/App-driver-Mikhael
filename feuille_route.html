@@ -46,7 +46,19 @@ details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;bord
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;font-weight:800;text-decoration:none;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:96px}
 .btn.call{background:var(--ok);border-color:var(--ok);color:#fff}
 .btn.nav{background:var(--accent);border-color:var(--accent);color:#0d1117}
-.colis{padding:4px 12px 10px;font-size:12px;color:var(--muted);font-family:'Courier New',monospace;word-break:break-all}
+.colis{padding:4px 12px 10px}
+.cl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-family:'Courier New',monospace;word-break:break-all;padding:2px 0}
+.cl span{flex:1;min-width:0}
+.mini{flex-shrink:0;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:12px;font-weight:800;font-family:inherit;cursor:pointer}
+.sent{display:inline-flex;align-items:center;gap:6px;margin:0 12px 8px;padding:3px 9px;border-radius:8px;background:rgba(46,168,74,.15);color:var(--ok);font-size:12px;font-weight:800}
+.sent button{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit}
+.notify{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.notify .btn{flex:0 1 auto}
+.notify small{color:var(--muted);font-size:13px}
+.serie{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surf);border-top:2px solid var(--accent);padding:12px 14px calc(var(--safe-bot) + 12px);box-shadow:0 -8px 24px rgba(0,0,0,.5)}
+.serie-h{font-size:15px;font-weight:800;margin-bottom:4px}
+.serie-n{font-size:14px;color:var(--muted);margin-bottom:10px;line-height:1.4}
+body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
 .navrow{display:flex;gap:6px;padding:0 12px 12px}
 .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.6}
 #toast{position:fixed;bottom:calc(var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;border:1px solid var(--border)}
@@ -66,13 +78,24 @@ details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;bord
       <label class="chk"><input type="checkbox" id="hideDone"/> Masquer les arrêts faits</label>
       <button class="btn" id="btnRefresh" style="flex:0 0 auto;min-width:0">🔄 Actualiser</button>
     </div>
+    <div class="notify">
+      <button class="btn nav" id="btnSerie">📨 Prévenir tous les clients</button>
+      <small id="serieResume"></small>
+    </div>
     <details class="tpl">
-      <summary>✉️ Message SMS type</summary>
-      <textarea id="smsTpl"></textarea>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">{nom} = nom du client · {adresse} = adresse. Mémorisé sur ce téléphone.</div>
+      <summary>✉️ Message SMS aux clients</summary>
+      <textarea id="smsTpl" style="min-height:190px"></textarea>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">{NOM} = nom du client · {MARQUE} = CAINIAO / GOFO · {TN} = numéro(s) de colis · {ADRESSE} = adresse, code postal et ville. Mémorisé sur ce téléphone.</div>
+      <button class="btn" id="btnTplReset" style="margin-top:8px;flex:0 0 auto">↺ Réinitialiser le modèle</button>
     </details>
   </div>
   <div id="list"></div>
+</div>
+<!-- Envoi en série : un client à la fois, jamais de SMS groupé -->
+<div class="serie" id="serie" style="display:none">
+  <div class="serie-h" id="serieCount"></div>
+  <div class="serie-n" id="serieNext"></div>
+  <div class="btns"><button class="btn call" id="serieGo">Suivant ▶</button><button class="btn" id="serieStop">Arrêter</button></div>
 </div>
 <div id="toast"></div>
 
@@ -80,8 +103,12 @@ details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;bord
 // ══════════════ CONFIGURATION ══════════════
 const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
 const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';   // clé publique : la RPC ne renvoie rien sans jeton valide
-const SMS_DEF='Bonjour {nom}, je suis votre livreur, j\'arrive bientôt pour votre colis. Merci !';
-const CACHE_KEY='fr_feuille', DONE_KEY='fr_fait', TPL_KEY='fr_sms_tpl', GPS_KEY='fr_gps';
+const SMS_DEF='Bonjour {NOM}, je suis votre livreur {MARQUE}, je vais vous livrer aujourd\'hui votre colis {TN}.\n'+
+  'Je vous appellerai avec un 04 lorsque j\'approcherai de votre adresse {ADRESSE}.\n'+
+  'N\'hésitez pas à me transmettre par SMS toute information qui pourrait faciliter la livraison.\n'+
+  'Bien cordialement,\nVotre livreur';
+const BRANDS=[[/^DOFR/,'CAINIAO'],[/^GFFR/,'GOFO']];   // marque selon le début du TN
+const CACHE_KEY='fr_feuille', DONE_KEY='fr_fait', SENT_KEY='fr_sms_envoyes', SERIE_KEY='fr_serie', TPL_KEY='fr_sms_modele';
 
 // ══════════════ UTILITAIRES ══════════════
 const $=id=>document.getElementById(id);
@@ -103,16 +130,19 @@ const todayParis=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris'}).
 
 // ══════════════ JETON ET CACHE ══════════════
 const jeton=new URLSearchParams(location.search).get('t')||'';
-let data=null, fetchedAt=0, done={};
+let data=null, fetchedAt=0, done={}, sent={}, serieOn=false;
 // Les données d'un autre lien, ou d'un jour passé, ne restent pas sur le téléphone
-function purge(){try{localStorage.removeItem(CACHE_KEY); localStorage.removeItem(DONE_KEY);}catch(e){}}
+function purge(){try{[CACHE_KEY,DONE_KEY,SENT_KEY,SERIE_KEY].forEach(k=>localStorage.removeItem(k));}catch(e){} sent={}; serieOn=false;}
 (function restore(){
   const c=lsGet(CACHE_KEY,null);
   if(!c||c.t!==jeton||!c.data||String(c.data.date)<todayParis()){ if(c) purge(); return; }
   data=c.data; fetchedAt=c.at||0;
   const d=lsGet(DONE_KEY,null); done=d&&d.t===jeton?d.done||{}:{};
+  const s=lsGet(SENT_KEY,null); sent=s&&s.t===jeton?s.sent||{}:{};
+  serieOn=lsGet(SERIE_KEY,null)===jeton;
 })();
 function saveDone(){lsSet(DONE_KEY,{t:jeton,done});}
+function saveSent(){lsSet(SENT_KEY,{t:jeton,sent});}
 
 async function load(){
   if(!jeton){showState('err','Lien incomplet : ouvrez le lien reçu par SMS ou scannez le QR code de votre chef d\'équipe.'); return;}
@@ -126,7 +156,7 @@ async function load(){
     const res=await r.json();
     if(!res||res.statut!=='ok'){
       // lien expiré, révoqué ou inconnu : on efface tout ce qui est gardé sur le téléphone
-      purge(); data=null; done={}; $('list').innerHTML=''; $('tools').style.display='none'; $('prog').style.display='none';
+      purge(); data=null; done={}; $('list').innerHTML=''; $('tools').style.display='none'; $('prog').style.display='none'; renderSerie();
       showState('err',res&&res.statut==='expire'?'⛔ Ce lien a expiré ou a été désactivé. Demandez un nouveau lien à votre chef d\'équipe.':'⛔ Lien inconnu. Vérifiez le lien reçu ou demandez-en un nouveau à votre chef d\'équipe.');
       return;
     }
@@ -157,11 +187,73 @@ function buildStops(){
   return stops;
 }
 const stopDone=s=>s.colis.every(c=>done[c.tn]);
-const smsTpl=()=>lsGet(TPL_KEY,SMS_DEF);
-function smsHref(c){
-  const body=smsTpl().replace(/\{nom\}/g,c.nom||'').replace(/\{adresse\}/g,c.adresse||'').replace(/\s+,/g,',').replace(/ {2,}/g,' ').trim();
-  return 'sms:'+telOf(c.tel)+(isIOS?'&':'?')+'body='+encodeURIComponent(body);
+// ══════════════ CLIENTS ET MESSAGE SMS ══════════════
+// Un client = un numéro valide. Les colis d'un même arrêt sans numéro valide rejoignent le client de cet arrêt.
+// Un seul message par client, avec tous ses TN.
+function phoneKey(p){let d=String(p||'').replace(/\D/g,''); if(d.startsWith('0033')) d='0'+d.slice(4); else if(d.startsWith('33')&&d.length===11) d='0'+d.slice(2); return d;}
+function buildClients(){
+  const stops=buildStops(), map=new Map(), clients=[]; let noPhone=0;
+  stops.forEach((s,si)=>{
+    const valid=s.colis.filter(c=>phoneOk(c.tel));
+    if(!valid.length){noPhone++; return;}
+    s.colis.forEach(c=>{
+      const own=phoneOk(c.tel), k=phoneKey(own?c.tel:valid[0].tel);
+      let cl=map.get(k);
+      if(!cl){cl={key:k,tel:own?c.tel:valid[0].tel,colis:[],stops:new Set()}; map.set(k,cl); clients.push(cl);}
+      cl.colis.push(c); cl.stops.add(si);
+    });
+  });
+  return {stops,clients,noPhone};
 }
+const smsTpl=()=>{const t=lsGet(TPL_KEY,null); return typeof t==='string'&&t.trim()?t:SMS_DEF;};
+function buildMessage(cl){
+  const tns=[...new Set(cl.colis.map(c=>String(c.tn||'').trim()).filter(Boolean))];
+  const marques=[...new Set(tns.map(t=>(BRANDS.find(([re])=>re.test(t))||[])[1]).filter(Boolean))].join(' / ');
+  const avecNom=cl.colis.find(c=>String(c.nom||'').trim()), nom=avecNom?String(avecNom.nom).trim():'';
+  const a=cl.colis.find(c=>c.adresse||c.cp||c.ville)||{};
+  const adr=[a.adresse,a.cp,a.ville].map(x=>String(x||'').trim()).filter(Boolean).join(' ')||'votre adresse';
+  let m=smsTpl();
+  if(tns.length>1) m=m.replace(/votre colis(\s*)\{TN\}/gi,'vos colis$1{TN}');
+  // une valeur vide supprime aussi l'espace qui précède (« Bonjour, », « votre livreur, je vais… »)
+  const put=(name,v)=>{m=m.replace(new RegExp('([ \\t]*)\\{'+name+'\\}','gi'),(all,sp)=>v?sp+v:'');};
+  put('NOM',nom); put('MARQUE',marques); put('TN',tns.join(', ')); put('ADRESSE',adr);
+  return m.replace(/votre adresse votre adresse/gi,'votre adresse').replace(/[ \t]+([,.])/g,'$1').replace(/[ \t]{2,}/g,' ').trim();
+}
+const smsHref=cl=>'sms:'+telOf(cl.tel)+(isIOS?'&':'?')+'body='+encodeURIComponent(buildMessage(cl));
+// Ouvre l'appli Messages pour UN client et le marque « SMS envoyé »
+function sendClient(cl){
+  sent[cl.key]=Date.now(); saveSent(); render();
+  location.href=smsHref(cl);
+}
+
+// ══════════════ ENVOI EN SÉRIE (un client à la fois) ══════════════
+function renderSerie(){
+  const box=$('serie');
+  if(!data){box.style.display='none'; document.body.classList.remove('serie-on'); $('serieResume').textContent=''; return;}
+  const {clients,noPhone}=buildClients(), nSent=clients.filter(c=>sent[c.key]).length, next=clients.find(c=>!sent[c.key]);
+  $('serieResume').textContent=nSent+' / '+clients.length+' prévenus'+(noPhone?' · '+noPhone+' client'+(noPhone>1?'s':'')+' sans numéro':'');
+  $('btnSerie').textContent=nSent&&next?'📨 Reprendre : prévenir les clients':'📨 Prévenir tous les clients';
+  box.style.display=serieOn?'':'none'; document.body.classList.toggle('serie-on',serieOn);
+  if(!serieOn) return;
+  $('serieCount').textContent='📨 '+nSent+' / '+clients.length+' clients prévenus'+(noPhone?' · '+noPhone+' sans numéro (sautés)':'');
+  if(next){
+    const c=next.colis[0];
+    $('serieNext').innerHTML='Suivant : <b>'+esc(String(c.nom||'').trim()||'client sans nom')+'</b> · '+esc(next.tel)+'<br/>'+esc([c.adresse,c.cp,c.ville].filter(Boolean).join(' '))+' · '+next.colis.length+' colis';
+    $('serieGo').style.display=''; $('serieGo').textContent='Suivant ▶'; $('serieStop').textContent='Arrêter';
+  }else{
+    $('serieNext').textContent='✅ Tous les clients avec un numéro valide ont été prévenus.';
+    $('serieGo').style.display='none'; $('serieStop').textContent='Fermer';
+  }
+}
+$('btnSerie').addEventListener('click',()=>{
+  const {clients}=buildClients(), next=clients.find(c=>!sent[c.key]);
+  serieOn=true; lsSet(SERIE_KEY,jeton);
+  if(next) sendClient(next); else renderSerie();
+});
+$('serieGo').addEventListener('click',()=>{const next=buildClients().clients.find(c=>!sent[c.key]); if(next) sendClient(next); else renderSerie();});
+$('serieStop').addEventListener('click',()=>{serieOn=false; try{localStorage.removeItem(SERIE_KEY);}catch(e){} renderSerie();});
+
+// ══════════════ AFFICHAGE ══════════════
 function navHref(s,app){
   const c=s.colis.find(x=>x.lat&&x.lon)||s.colis[0], q=[c.adresse,c.cp,c.ville].filter(Boolean).join(' ');
   if(app==='waze') return c.lat&&c.lon?'https://waze.com/ul?ll='+c.lat+','+c.lon+'&navigate=yes':'https://waze.com/ul?q='+encodeURIComponent(q)+'&navigate=yes';
@@ -174,31 +266,37 @@ function render(){
   $('sub').textContent=data.xpt+' · '+fmtD(data.date)+' · lien valable jusqu\'à minuit';
   $('tools').style.display='';
   if(document.activeElement!==$('smsTpl')) $('smsTpl').value=smsTpl();
-  const stops=buildStops(), nDone=stops.filter(stopDone).length, hide=$('hideDone').checked;
+  const {stops,clients}=buildClients(), nDone=stops.filter(stopDone).length, hide=$('hideDone').checked;
+  const clientOf=new Map(); clients.forEach(cl=>cl.colis.forEach(c=>clientOf.set(c,cl)));
   $('prog').style.display='';
   $('barFill').style.width=(stops.length?nDone/stops.length*100:0)+'%';
   $('progTxt').textContent=nDone+' / '+stops.length+' arrêts faits';
+  renderSerie();
   if(!stops.length){$('list').innerHTML='<div class="empty">Aucun arrêt sur cette feuille.</div>';return;}
   let h='', sec='', idx=0;
   stops.forEach((s,i)=>{
     if(s.origine==='ajout_tri'&&sec!=='ajout'){sec='ajout'; h+='<div class="sec">➕ Ajoutés au tri</div>';}
-    const fait=stopDone(s); if(hide&&fait) return;
-    const a=s.colis[0], label=a.position||(++idx&&'+'+idx);
+    const fait=stopDone(s); if(s.origine==='ajout_tri') idx++;
+    if(hide&&fait) return;
+    const a=s.colis[0], label=a.position||'+'+idx;
+    // clients de l'arrêt déjà prévenus
+    const sentKeys=[...new Set(s.colis.map(c=>clientOf.get(c)).filter(cl=>cl&&sent[cl.key]).map(cl=>cl.key))];
     // contacts distincts de l'arrêt (plusieurs colis peuvent avoir le même client)
     const contacts=[]; s.colis.forEach(c=>{const k=norm(c.nom)+'|'+String(c.tel||'').replace(/\D/g,'')+'|'+norm(c.email); if(!contacts.some(x=>x.k===k)) contacts.push({k,c});});
     h+='<div class="stop'+(fait?' done':'')+'"><div class="stop-h"><div class="num">'+esc(label)+'</div><div class="addr">'+
       '<div class="a1">'+(a.adresse?esc(a.adresse):'<span style="color:var(--muted)">Adresse inconnue</span>')+'</div>'+
       '<div class="a2">'+esc([a.cp,a.ville].filter(Boolean).join(' '))+(s.colis.length>1?' · <b style="color:var(--accent)">'+s.colis.length+' colis</b>':'')+'</div></div>'+
       '<label class="fait"><input type="checkbox" data-done="'+i+'"'+(fait?' checked':'')+'/>Fait</label></div>'+
+      (sentKeys.length?'<div class="sent">✉️ SMS envoyé '+fmtHM(Math.max(...sentKeys.map(k=>sent[k])))+' <button data-unsent="'+esc(sentKeys.join(','))+'">annuler</button></div>':'')+
       contacts.map(({c})=>{
-        const tel=phoneOk(c.tel), mail=emailOk(c.email);
+        const tel=phoneOk(c.tel), mail=emailOk(c.email), cl=clientOf.get(c);
         return '<div class="contact"><div class="who">'+(c.nom?esc(c.nom):'<small>Nom inconnu</small>')+(tel?' <small>· '+esc(c.tel)+'</small>':'')+'</div>'+
           ((tel||mail)?'<div class="btns">'+
-            (tel?'<a class="btn call" href="tel:'+esc(telOf(c.tel))+'">📞 Appeler</a><a class="btn" href="'+esc(smsHref(c))+'">💬 SMS</a><button class="btn" data-copy="'+esc(c.tel)+'">📋 Numéro</button>':'')+
+            (tel?'<a class="btn call" href="tel:'+esc(telOf(c.tel))+'">📞 Appeler</a>'+(cl?'<button class="btn" data-sms="'+esc(cl.key)+'">💬 SMS</button>':'')+'<button class="btn" data-copy="'+esc(c.tel)+'">📋 Numéro</button>':'')+
             (mail?'<button class="btn" data-copy="'+esc(String(c.email).trim())+'">📋 E-mail</button>':'')+'</div>'
             :'<div style="font-size:13px;color:var(--muted)">Pas de numéro ni d\'e-mail utilisable</div>')+'</div>';
       }).join('')+
-      '<div class="colis">'+s.colis.map(c=>esc(c.tn)+(c.lp?' · '+esc(c.lp):'')).join('<br/>')+'</div>'+
+      '<div class="colis">'+s.colis.map(c=>'<div class="cl"><span>'+esc(c.tn)+(c.lp?' · '+esc(c.lp):'')+'</span><button class="mini" data-copy="'+esc(c.tn)+'">📋 TN</button></div>').join('')+'</div>'+
       '<div class="navrow"><a class="btn nav" href="'+esc(navHref(s,'gmaps'))+'" target="_blank" rel="noopener">🧭 Google Maps</a><a class="btn nav" href="'+esc(navHref(s,'waze'))+'" target="_blank" rel="noopener">🚗 Waze</a></div></div>';
   });
   $('list').innerHTML=h||'<div class="empty">✅ Tous les arrêts sont faits.</div>';
@@ -209,6 +307,10 @@ $('list').addEventListener('change',e=>{
   saveDone(); render();
 });
 $('list').addEventListener('click',async e=>{
+  const sms=e.target.closest('[data-sms]');
+  if(sms){const cl=buildClients().clients.find(c=>c.key===sms.dataset.sms); if(cl) sendClient(cl); return;}
+  const un=e.target.closest('[data-unsent]');
+  if(un){un.dataset.unsent.split(',').forEach(k=>delete sent[k]); saveSent(); render(); return;}
   const b=e.target.closest('[data-copy]'); if(!b) return;
   const t=b.dataset.copy;
   try{await navigator.clipboard.writeText(t); toast('Copié : '+t);}
@@ -216,6 +318,11 @@ $('list').addEventListener('click',async e=>{
 });
 $('hideDone').addEventListener('change',render);
 $('smsTpl').addEventListener('input',e=>lsSet(TPL_KEY,e.target.value));
+$('btnTplReset').addEventListener('click',()=>{
+  if(!confirm('Revenir au message par défaut ?')) return;
+  try{localStorage.removeItem(TPL_KEY);}catch(e){}
+  $('smsTpl').value=SMS_DEF; toast('Modèle réinitialisé');
+});
 
 // ══════════════ HORS LIGNE : la page elle-même est gardée par un service worker (réseau d'abord) ══════════════
 if('serviceWorker' in navigator&&location.protocol==='https:'){
