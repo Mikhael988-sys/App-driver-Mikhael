@@ -59,6 +59,11 @@ details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;bord
 .serie-h{font-size:15px;font-weight:800;margin-bottom:4px}
 .serie-n{font-size:14px;color:var(--muted);margin-bottom:10px;line-height:1.4}
 body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
+.search{display:flex;gap:6px;margin-bottom:6px}
+.search input{flex:1;min-width:0;padding:12px 14px;border-radius:12px;border:2px solid var(--border);background:var(--surf2);color:var(--fg);font-size:16px;font-family:inherit;outline:none}
+.search input:focus{border-color:var(--accent)}
+.search button{flex-shrink:0;width:48px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:18px;font-weight:800;cursor:pointer}
+.qcount{font-size:13px;color:var(--muted);font-weight:700;margin:0 2px 10px}
 .navrow{display:flex;gap:6px;padding:0 12px 12px}
 .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.6}
 #toast{position:fixed;bottom:calc(var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;border:1px solid var(--border)}
@@ -88,6 +93,12 @@ body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
       <div style="font-size:12px;color:var(--muted);margin-top:4px">{NOM} = nom du client · {MARQUE} = CAINIAO / GOFO · {TN} = numéro(s) de colis · {ADRESSE} = adresse, code postal et ville. Mémorisé sur ce téléphone.</div>
       <button class="btn" id="btnTplReset" style="margin-top:8px;flex:0 0 auto">↺ Réinitialiser le modèle</button>
     </details>
+    <!-- Recherche dans les arrêts (non mémorisée) -->
+    <div class="search">
+      <input type="search" id="q" placeholder="🔍 Nom, adresse, code postal, ville, TN…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"/>
+      <button id="qClear" title="Effacer la recherche" style="display:none">✕</button>
+    </div>
+    <div class="qcount" id="qCount" style="display:none"></div>
   </div>
   <div id="list"></div>
 </div>
@@ -273,11 +284,18 @@ function render(){
   $('progTxt').textContent=nDone+' / '+stops.length+' arrêts faits';
   renderSerie();
   if(!stops.length){$('list').innerHTML='<div class="empty">Aucun arrêt sur cette feuille.</div>';return;}
-  let h='', sec='', idx=0;
+  // recherche : tous les mots doivent se trouver dans le nom, l'adresse, le code postal, la ville, le TN ou le LP No. d'un colis de l'arrêt
+  const words=norm($('q').value).split(' ').filter(Boolean);
+  const match=s=>!words.length||(h=>words.every(w=>h.includes(w)))(norm(s.colis.map(c=>[c.nom,c.adresse,c.cp,c.ville,c.tn,c.lp].join(' ')).join(' ')));
+  $('qClear').style.display=$('q').value?'':'none';
+  let h='', sec='', idx=0, shown=0, found=0;
   stops.forEach((s,i)=>{
-    if(s.origine==='ajout_tri'&&sec!=='ajout'){sec='ajout'; h+='<div class="sec">➕ Ajoutés au tri</div>';}
     const fait=stopDone(s); if(s.origine==='ajout_tri') idx++;
+    if(!match(s)) return;
+    found++;
     if(hide&&fait) return;
+    shown++;
+    if(s.origine==='ajout_tri'&&sec!=='ajout'){sec='ajout'; h+='<div class="sec">➕ Ajoutés au tri</div>';}
     const a=s.colis[0], label=a.position||'+'+idx;
     // clients de l'arrêt déjà prévenus
     const sentKeys=[...new Set(s.colis.map(c=>clientOf.get(c)).filter(cl=>cl&&sent[cl.key]).map(cl=>cl.key))];
@@ -299,7 +317,9 @@ function render(){
       '<div class="colis">'+s.colis.map(c=>'<div class="cl"><span>'+esc(c.tn)+(c.lp?' · '+esc(c.lp):'')+'</span><button class="mini" data-copy="'+esc(c.tn)+'">📋 TN</button></div>').join('')+'</div>'+
       '<div class="navrow"><a class="btn nav" href="'+esc(navHref(s,'gmaps'))+'" target="_blank" rel="noopener">🧭 Google Maps</a><a class="btn nav" href="'+esc(navHref(s,'waze'))+'" target="_blank" rel="noopener">🚗 Waze</a></div></div>';
   });
-  $('list').innerHTML=h||'<div class="empty">✅ Tous les arrêts sont faits.</div>';
+  $('qCount').style.display=words.length?'':'none';
+  $('qCount').textContent=shown+' arrêt'+(shown>1?'s':'')+' sur '+stops.length+(hide&&found>shown?' ('+(found-shown)+' fait'+(found-shown>1?'s':'')+' masqué'+(found-shown>1?'s':'')+')':'');
+  $('list').innerHTML=h||(words.length&&!found?'<div class="empty">🔍 Aucun arrêt trouvé.</div>':'<div class="empty">✅ Tous les arrêts sont faits.</div>');
 }
 $('list').addEventListener('change',e=>{
   const i=e.target.dataset.done; if(i==null) return;
@@ -317,6 +337,9 @@ $('list').addEventListener('click',async e=>{
   catch(err){const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Copié : '+t);}catch(_){toast('Copie impossible');} ta.remove();}
 });
 $('hideDone').addEventListener('change',render);
+$('q').value='';   // la recherche n'est jamais mémorisée
+$('q').addEventListener('input',render);
+$('qClear').addEventListener('click',()=>{$('q').value=''; render(); $('q').focus();});
 $('smsTpl').addEventListener('input',e=>lsSet(TPL_KEY,e.target.value));
 $('btnTplReset').addEventListener('click',()=>{
   if(!confirm('Revenir au message par défaut ?')) return;
