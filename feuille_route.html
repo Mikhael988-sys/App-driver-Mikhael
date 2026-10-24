@@ -187,13 +187,24 @@ window.addEventListener('online',load);
 $('btnRefresh').addEventListener('click',load);
 
 // ══════════════ ARRÊTS ══════════════
+// Adresse complète comparable : « 1 Place Bellecour » + « 69002 » + « Lyon » = « 1 Place Bellecour 69002 Lyon » (adresse du géocodeur)
+function fullAdr(a){
+  let s=norm(a.adresse); const has=w=>(' '+s+' ').includes(' '+w+' ');
+  const cp=norm(a.cp), v=norm(a.ville);
+  if(cp&&!has(cp)) s+=' '+cp;
+  if(v&&!has(v)) s+=' '+v;
+  return s;
+}
 // colis consécutifs à la même adresse = un seul arrêt
 function buildStops(){
   const stops=[];
   (data.arrets||[]).forEach(a=>{
-    const key=a.origine+'|'+norm(a.adresse)+'|'+norm(a.cp), prev=stops[stops.length-1];
+    // un colis ajouté au tri avec une position de référence (« 23 bis ») suit cette position et rejoint son arrêt s'il a la même adresse ;
+    // sans référence, il va dans la rubrique « Ajoutés au tri »
+    const orig=a.origine==='ajout_tri'&&a.position_ref==null?'ajout_tri':'liste';
+    const key=orig+'|'+fullAdr(a), prev=stops[stops.length-1];
     if(prev&&prev.key===key&&norm(a.adresse)) prev.colis.push(a);
-    else stops.push({key,origine:a.origine,colis:[a]});
+    else stops.push({key,origine:orig,colis:[a]});
   });
   return stops;
 }
@@ -286,7 +297,7 @@ function render(){
   if(!stops.length){$('list').innerHTML='<div class="empty">Aucun arrêt sur cette feuille.</div>';return;}
   // recherche : tous les mots doivent se trouver dans le nom, l'adresse, le code postal, la ville, le TN ou le LP No. d'un colis de l'arrêt
   const words=norm($('q').value).split(' ').filter(Boolean);
-  const match=s=>!words.length||(h=>words.every(w=>h.includes(w)))(norm(s.colis.map(c=>[c.nom,c.adresse,c.cp,c.ville,c.tn,c.lp].join(' ')).join(' ')));
+  const match=s=>!words.length||(h=>words.every(w=>h.includes(w)))(norm(s.colis.map(c=>[c.nom,c.adresse,c.cp,c.ville,c.tn,c.lp,c.position_label].join(' ')).join(' ')));
   $('qClear').style.display=$('q').value?'':'none';
   let h='', sec='', idx=0, shown=0, found=0;
   stops.forEach((s,i)=>{
@@ -296,7 +307,7 @@ function render(){
     if(hide&&fait) return;
     shown++;
     if(s.origine==='ajout_tri'&&sec!=='ajout'){sec='ajout'; h+='<div class="sec">➕ Ajoutés au tri</div>';}
-    const a=s.colis[0], label=a.position||'+'+idx;
+    const a=s.colis[0], label=a.position||a.position_label||'+'+idx;
     // clients de l'arrêt déjà prévenus
     const sentKeys=[...new Set(s.colis.map(c=>clientOf.get(c)).filter(cl=>cl&&sent[cl.key]).map(cl=>cl.key))];
     // contacts distincts de l'arrêt (plusieurs colis peuvent avoir le même client)
@@ -314,7 +325,7 @@ function render(){
             (mail?'<button class="btn" data-copy="'+esc(String(c.email).trim())+'">📋 E-mail</button>':'')+'</div>'
             :'<div style="font-size:13px;color:var(--muted)">Pas de numéro ni d\'e-mail utilisable</div>')+'</div>';
       }).join('')+
-      '<div class="colis">'+s.colis.map(c=>'<div class="cl"><span>'+esc(c.tn)+(c.lp?' · '+esc(c.lp):'')+'</span><button class="mini" data-copy="'+esc(c.tn)+'">📋 TN</button></div>').join('')+'</div>'+
+      '<div class="colis">'+s.colis.map(c=>'<div class="cl"><span>'+(c.position_label?'<b style="color:var(--accent);font-family:inherit">'+esc(c.position_label)+'</b> · ':'')+esc(c.tn)+(c.lp?' · '+esc(c.lp):'')+'</span><button class="mini" data-copy="'+esc(c.tn)+'">📋 TN</button></div>').join('')+'</div>'+
       '<div class="navrow"><a class="btn nav" href="'+esc(navHref(s,'gmaps'))+'" target="_blank" rel="noopener">🧭 Google Maps</a><a class="btn nav" href="'+esc(navHref(s,'waze'))+'" target="_blank" rel="noopener">🚗 Waze</a></div></div>';
   });
   $('qCount').style.display=words.length?'':'none';

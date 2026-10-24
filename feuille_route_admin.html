@@ -186,7 +186,14 @@ function exclOf(tour){
   return '';
 }
 // Arrêts : colis consécutifs à la même adresse (ou aux mêmes coordonnées) = un seul arrêt
-const stopKey=it=>(normHead(it.address)+'|'+normHead(it.zip_code))||'';
+// adresse complète comparable (même règle que la feuille du driver) : rue + code postal + ville s'ils n'y sont pas déjà
+function stopKey(it){
+  let s=normHead(it.address); if(!s) return '';
+  const has=w=>(' '+s+' ').includes(' '+w+' '), cp=normHead(it.zip_code), v=normHead(it.city);
+  if(cp&&!has(cp)) s+=' '+cp;
+  if(v&&!has(v)) s+=' '+v;
+  return s;
+}
 function countStops(items){let n=0, prev=null; items.forEach(it=>{const k=stopKey(it); if(k!==prev||!k) n++; prev=k;}); return n;}
 
 // ══════════════ ÉTAT ══════════════
@@ -337,7 +344,7 @@ async function loadAjouts(){
   if(code){
     const m=new Map(); let off=0;
     for(;;){
-      const {data,error}=await sb.from('scans').select('id,tn,tournee,adresse,scanned_at,received_at').eq('session_code',code).eq('kind','hors')
+      const {data,error}=await sb.from('scans').select('id,tn,tournee,adresse,position_ref,position_label,scanned_at,received_at').eq('session_code',code).eq('kind','hors')
         .order('received_at').order('id').range(off,off+PAGE-1);
       if(code!==sessSel) return;
       if(error){sessErr=error.message;break;}
@@ -348,6 +355,7 @@ async function loadAjouts(){
         if(t&&t<a.t) a.t=t;
         if(r.tournee) a.tour=String(r.tournee);   // dernière tournée connue
         if(r.adresse) a.adr=String(r.adresse);
+        if(r.position_label){a.pref=r.position_ref; a.plabel=String(r.position_label);}   // étiquette écrite sur le colis (« 23 bis »)
       });
       if(!data.length) break;
       off+=data.length;
@@ -389,13 +397,14 @@ function buildImport(){
   });
   ajouts.filter(a=>!inJson.has(a.tn)).forEach(a=>{
     let t=T.get(a.tour); if(!t){t={name:a.tour,excl:exclOf(a.tour),items:[]};T.set(a.tour,t);}
-    t.items.push(enrich({tn:a.tn,position:null,origine:'ajout_tri',address:a.adr,zip_code:'',city:'',lat:null,lon:null,scan_heure:new Date(a.t).toISOString()}));
+    t.items.push(enrich({tn:a.tn,position:null,origine:'ajout_tri',address:a.adr,zip_code:'',city:'',lat:null,lon:null,scan_heure:new Date(a.t).toISOString(),
+      position_ref:a.plabel?a.pref:null,position_label:a.plabel||null}));
   });
   return [...T.values()].sort((a,b)=>(!!a.excl-!!b.excl)||natCmp(a.name,b.name));
 }
 
 // ══════════════ ENREGISTREMENT ══════════════
-const ROW_COLS=['tn','position','origine','address','zip_code','city','lat','lon','lp_no','contact_name','contact_phone','contact_email','epod_trouve','scan_heure'];
+const ROW_COLS=['tn','position','position_ref','position_label','origine','address','zip_code','city','lat','lon','lp_no','contact_name','contact_phone','contact_email','epod_trouve','scan_heure'];
 async function saveImport(){
   const T=buildImport(); if(!T) return;
   const date=curDate(), xpt=curXpt(), keep=T.filter(t=>!t.excl&&t.items.length);
@@ -438,7 +447,7 @@ async function loadDb(){
   const arr=[]; let off=0;
   try{
     for(;;){
-      const {data,error}=await sb.from('fr_arrets').select('tournee,tn,origine,epod_trouve,address,zip_code,position,scan_heure,contact_phone')
+      const {data,error}=await sb.from('fr_arrets').select('tournee,tn,origine,epod_trouve,address,zip_code,city,position,position_ref,position_label,scan_heure,contact_phone')
         .eq('task_date',date).eq('xpt',xpt).eq('annule',false).order('id').range(off,off+PAGE-1);
       if(error) throw error; arr.push(...data); if(!data.length) break; off+=data.length;
     }
@@ -455,7 +464,9 @@ function dbTours(){
   dbArrets.forEach(a=>{let t=m.get(a.tournee); if(!t){t={name:a.tournee,items:[]};m.set(a.tournee,t);} t.items.push(a);});
   const list=[...m.values()];
   list.forEach(t=>{
-    t.items.sort((a,b)=>((a.origine==='ajout_tri')-(b.origine==='ajout_tri'))||((a.position||1e9)-(b.position||1e9))||String(a.scan_heure||'').localeCompare(String(b.scan_heure||'')));
+    // même ordre que la feuille du driver : « 23 bis » juste après le 23 ; sans référence, en fin de liste
+    const free=a=>a.origine==='ajout_tri'&&a.position_ref==null;
+    t.items.sort((a,b)=>(free(a)-free(b))||((a.position||a.position_ref||1e9)-(b.position||b.position_ref||1e9))||((a.origine==='ajout_tri')-(b.origine==='ajout_tri'))||String(a.scan_heure||'').localeCompare(String(b.scan_heure||'')));
     t.n=t.items.length; t.stops=countStops(t.items);
     t.noEpod=t.items.filter(a=>!a.epod_trouve).length; t.ajout=t.items.filter(a=>a.origine==='ajout_tri').length;
   });
@@ -552,7 +563,8 @@ function render(){
   $('stEpod').innerHTML=epod?'✅ <b>'+num(epod.n)+'</b> colis dans l\'export<br/><span class="muted">'+esc(epod.name)+'</span>'+
     (tours?'<br/>Correspondance : <b>'+num(found)+'</b> / '+num(allJson)+(notFound?' · <span class="neg"><b>'+num(notFound)+'</b> colis sans contact EPOD</span>':''):'')
     :'<span class="muted">Aucun export chargé.</span>';
-  $('stAjouts').innerHTML=sessSel?'<b>'+ajouts.length+'</b> colis hors liste rattachés à une tournée dans <b>'+esc(sessSel)+'</b>':'<span class="muted">Pas de colis ajoutés au tri.</span>';
+  $('stAjouts').innerHTML=sessSel?'<b>'+ajouts.length+'</b> colis hors liste rattachés à une tournée dans <b>'+esc(sessSel)+'</b>'+
+    (ajouts.length?' · dont <b>'+ajouts.filter(a=>a.plabel).length+'</b> avec une position (« 23 bis »)':''):'<span class="muted">Pas de colis ajoutés au tri.</span>';
 
   // aperçu
   const T=buildImport();
