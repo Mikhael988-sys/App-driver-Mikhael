@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2330;--border:rgba(255,255,255,.1);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#3fb950;--err:#f85149}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,6 +56,24 @@ tr.dim td{color:var(--muted)}
 .sess b{font-family:'Courier New',monospace;font-size:13px}
 .acts{display:flex;gap:5px;flex-wrap:wrap}
 .drv{width:150px;padding:5px 8px;font-size:13px}
+/* onglets et suivi des livraisons */
+.vtabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.vtabs .btn{font-size:14px;padding:10px 14px}
+.vtabs .btn.on{border-color:var(--accent);color:var(--accent);background:rgba(240,180,41,.08)}
+.bar{height:10px;background:var(--surf2);border-radius:5px;overflow:hidden;min-width:110px;display:flex}
+.bar>i{display:block;height:100%}
+tr.alert td{background:rgba(248,81,73,.08)}
+tr.tot td{font-weight:900;border-top:2px solid var(--accent);color:var(--accent)}
+#gmap{height:520px;border-radius:10px;border:1px solid var(--border);background:#1c2128}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:10px 0 0;font-size:13px}
+.legend label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.legend label.off{color:var(--muted);text-decoration:line-through}
+.legend .sw{width:14px;height:14px;border-radius:50%;display:inline-block}
+.gmk{border-radius:12px;min-width:22px;height:22px;padding:0 5px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;color:#fff;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);font-family:'Courier New',monospace;white-space:nowrap}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--surf);color:var(--fg)}
+.leaflet-popup-content{font-size:13px;line-height:1.5}
+.rtpill{font-size:12px;font-weight:700;padding:4px 9px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);color:var(--muted)}
+.rtpill.ok{color:var(--ok)}.rtpill.wait{color:var(--accent);border-color:var(--accent)}
 #login{max-width:380px;margin:9vh auto;padding:0 16px}
 #qrFull{display:none;position:fixed;inset:0;background:#fff;z-index:4000;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:10px;color:#000}
 #qrFull canvas{width:min(78vw,68vh);height:auto;image-rendering:pixelated}
@@ -117,7 +137,9 @@ tr.dim td{color:var(--muted)}
   </div>
 
   <div>
+    <div class="vtabs"><button class="btn on" data-vtab="liens">🔗 Tournées &amp; liens</button><button class="btn" data-vtab="suivi">📦 Suivi des livraisons</button></div>
     <div id="banners"></div>
+    <section id="v-liens">
     <div class="panel" id="apercuPanel" style="display:none">
       <h3>Aperçu de l'import</h3>
       <div class="tbl" id="tApercu"></div>
@@ -137,6 +159,33 @@ tr.dim td{color:var(--muted)}
       <div class="tbl" id="tTours"></div>
       <div class="note">Un lien par tournée et par jour. « Envoyer par SMS » ouvre l'appli SMS avec le message et le lien : choisissez le destinataire. « Régénérer » rend l'ancien lien inutilisable ; « Révoquer » le coupe tout de suite (« Réactiver » pour le rétablir). Le nom du driver est facultatif et s'affiche sur sa feuille.</div>
     </div>
+    </section>
+
+    <!-- ══ SUIVI DES LIVRAISONS ══ -->
+    <section id="v-suivi" style="display:none">
+      <div class="panel">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <h3 style="flex:1;margin:0" id="suiviTitle">Suivi des livraisons</h3>
+          <span class="rtpill" id="rtPill">…</span>
+          <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:6px">Alerte si aucune action depuis
+            <input type="number" id="seuil" min="5" max="600" step="5" style="width:70px;padding:5px 8px"/> min</label>
+          <button class="btn sm" id="btnCsvSuivi">⬇ CSV récapitulatif</button>
+          <button class="btn sm" id="btnCsvEchecs">⬇ CSV des échecs</button>
+        </div>
+        <div class="tbl" id="tSuivi"></div>
+        <div class="note">Mis à jour en temps réel dès qu'un driver enregistre un statut (relecture de contrôle toutes les 60 s). Dernière action = heure du dernier statut saisi sur le téléphone.</div>
+      </div>
+      <div class="panel">
+        <h3>🗺 Carte de toutes les tournées</h3>
+        <div id="gmap"></div>
+        <div class="legend" id="gLegend"></div>
+        <div class="note" id="gNote">Bord du point = couleur de la tournée · fond : gris à faire, vert livré, rouge échec, orange mixte ou partiel. Cliquez sur une tournée de la légende pour l'afficher ou la masquer.</div>
+      </div>
+      <div class="panel">
+        <h3>❌ Échecs de livraison</h3>
+        <div class="tbl" id="tEchecs"></div>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -224,7 +273,7 @@ function onAuth(sess){
   $('app').style.display=u?'':'none';
   $('btnLogout').style.display=u?'':'none';
   $('userMail').textContent=u?u.email:'';
-  if(u){loadExcl(); loadSessions(); loadDb();}
+  if(u){loadExcl(); loadSessions(); loadDb(); subscribeStatuts();}
 }
 if(sb) sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>onAuth(s),0));
 else $('loginErr').textContent='Bibliothèque Supabase non chargée : vérifiez la connexion internet.';
@@ -240,7 +289,7 @@ $('xpt').innerHTML=XPT_LIST.map(x=>'<option value="'+x+'">'+x+'</option>').join(
 $('date').value=localISO(new Date());
 try{const p=JSON.parse(localStorage.getItem('frAdmin_pick')||'{}'); if(XPT_LIST.includes(p.xpt)) $('xpt').value=p.xpt;}catch(e){}
 const curDate=()=>$('date').value, curXpt=()=>$('xpt').value;
-$('date').addEventListener('change',()=>loadDb());
+$('date').addEventListener('change',()=>{loadDb(); subscribeStatuts();});
 $('xpt').addEventListener('change',()=>{try{localStorage.setItem('frAdmin_pick',JSON.stringify({xpt:curXpt()}));}catch(e){} loadSessions(); loadDb();});
 
 // ══════════════ 1. JSON DES TOURNÉES (même format que l'appli mobile) ══════════════
@@ -447,7 +496,7 @@ async function loadDb(){
   const arr=[]; let off=0;
   try{
     for(;;){
-      const {data,error}=await sb.from('fr_arrets').select('tournee,tn,origine,epod_trouve,address,zip_code,city,position,position_ref,position_label,scan_heure,contact_phone')
+      const {data,error}=await sb.from('fr_arrets').select('tournee,tn,origine,epod_trouve,address,zip_code,city,position,position_ref,position_label,scan_heure,contact_phone,contact_name,lat,lon')
         .eq('task_date',date).eq('xpt',xpt).eq('annule',false).order('id').range(off,off+PAGE-1);
       if(error) throw error; arr.push(...data); if(!data.length) break; off+=data.length;
     }
@@ -457,6 +506,7 @@ async function loadDb(){
     dbArrets=arr; dbJetons=new Map(jet.map(j=>[j.tournee,j]));
   }catch(e){dbErr=e.message||String(e); dbArrets=[]; dbJetons=new Map();}
   render();
+  loadStatuts();
 }
 $('btnReload').addEventListener('click',()=>{loadSessions(); loadDb();});
 function dbTours(){
@@ -604,6 +654,146 @@ function render(){
     }).join('')+'</tbody></table>'
     :'<div class="empty">Aucune tournée enregistrée pour le '+fmtD(date)+' ('+esc(xpt)+').<br/>Chargez le JSON des tournées et l\'export EPOD, puis « Enregistrer dans Supabase ».</div>';
 }
+// ══════════════ SUIVI DES LIVRAISONS ══════════════
+const MOTIFS={absent:'Absent',adresse_introuvable:'Adresse introuvable',acces_impossible:'Accès impossible (digicode / portail)',refuse:'Refusé',endommage:'Colis endommagé',autre:'Autre'};
+const PALETTE=['#3987e5','#d95926','#199e70','#c98500','#d55181','#2bb3c0','#9085e9','#e66767','#7cb342','#8d6e63','#ff8f00','#5c6bc0','#26a69a','#ec407a','#8e24aa','#43a047'];
+const ST_COL={afaire:'#6e7681',ok:'#2ea84a',ko:'#e53935',mix:'#f08c00'};
+let dbStatuts=new Map(), vtab='liens', stChan=null, rtState='', gmap=null, gLayer=null, gFitted=false, gHidden=new Set(), suiviTimer=null;
+try{$('seuil').value=Number(localStorage.getItem('frAdmin_seuil'))||45;}catch(e){$('seuil').value=45;}
+$('seuil').addEventListener('change',()=>{const v=Math.max(5,Number($('seuil').value)||45); $('seuil').value=v; try{localStorage.setItem('frAdmin_seuil',v);}catch(e){} renderSuivi();});
+document.querySelectorAll('[data-vtab]').forEach(b=>b.addEventListener('click',()=>{
+  vtab=b.dataset.vtab;
+  document.querySelectorAll('[data-vtab]').forEach(x=>x.classList.toggle('on',x===b));
+  $('v-liens').style.display=vtab==='liens'?'':'none';
+  $('v-suivi').style.display=vtab==='suivi'?'':'none';
+  if(vtab==='suivi'){initGmap(); renderSuivi(); if(gmap) setTimeout(()=>gmap.invalidateSize(),60);}
+}));
+async function loadStatuts(){
+  if(!user) return;
+  const date=curDate(), xpt=curXpt(), m=new Map(); let off=0;
+  for(;;){
+    const {data,error}=await sb.from('fr_statuts').select('*').eq('task_date',date).eq('xpt',xpt).order('id').range(off,off+PAGE-1);
+    if(error||date!==curDate()||xpt!==curXpt()) return;
+    data.forEach(r=>m.set(r.tn,r)); if(!data.length) break; off+=data.length;
+  }
+  dbStatuts=m; scheduleSuivi();
+}
+// Temps réel : changements de fr_statuts pour le jour choisi
+function subscribeStatuts(){
+  if(!user) return;
+  if(stChan){try{sb.removeChannel(stChan);}catch(e){} stChan=null;}
+  const date=curDate(); rtState=''; renderRt();
+  stChan=sb.channel('fr-statuts-'+date+'-'+Date.now())
+    .on('postgres_changes',{event:'*',schema:'public',table:'fr_statuts',filter:'task_date=eq.'+date},p=>{
+      const r=p.new; if(!r||!r.tn||r.xpt!==curXpt()||String(r.task_date)!==curDate()) return;
+      dbStatuts.set(r.tn,r); scheduleSuivi();
+    })
+    .subscribe(st=>{rtState=st; renderRt(); if(st==='SUBSCRIBED') loadStatuts();});
+}
+function renderRt(){const p=$('rtPill'); if(rtState==='SUBSCRIBED'){p.textContent='🟢 Temps réel';p.className='rtpill ok';} else {p.textContent='🟠 Temps réel : connexion…';p.className='rtpill wait';}}
+setInterval(()=>{if(user){if(rtState!=='SUBSCRIBED') subscribeStatuts(); loadStatuts();}},60000);
+setInterval(()=>{if(vtab==='suivi') renderSuivi();},30000);   // alertes « aucune action depuis… »
+function scheduleSuivi(){clearTimeout(suiviTimer); suiviTimer=setTimeout(renderSuivi,300);}
+const stOfTn=tn=>(dbStatuts.get(tn)||{}).statut||'a_faire';
+const labelOf=(a,k)=>String(a.position||a.position_label||'+'+k);
+// Arrêts de chaque tournée (colis consécutifs à la même adresse), avec leurs statuts
+function suiviData(){
+  const tours=dbTours().filter(t=>!exclOf(t.name)), now=Date.now(), seuil=(Number($('seuil').value)||45)*60000;
+  tours.forEach((t,ti)=>{
+    t.color=PALETTE[ti%PALETTE.length];
+    t.l=0; t.e=0; t.last=0; t.stopList=[];
+    let prev=null, k=0;
+    t.items.forEach(a=>{
+      const st=dbStatuts.get(a.tn);
+      if(st){const at=Date.parse(st.action_le)||0; if(at>t.last) t.last=at; if(st.statut==='livre') t.l++; else if(st.statut==='echec') t.e++;}
+      const key=stopKey(a);
+      if(prev&&key&&key===prev.key) prev.items.push(a);
+      else{if(a.origine==='ajout_tri'&&a.position_ref==null) k++; prev={key,items:[a],label:labelOf(a,k)}; t.stopList.push(prev);}
+    });
+    t.rest=t.n-t.l-t.e; t.pct=t.n?Math.round((t.l+t.e)/t.n*100):0;
+    t.alert=t.rest>0&&t.last&&now-t.last>seuil;
+    const j=dbJetons.get(t.name); t.driver=j?j.driver_nom:'';
+  });
+  return tours;
+}
+function stopColor(sp){
+  let l=0,e=0; sp.items.forEach(a=>{const s=stOfTn(a.tn); if(s==='livre') l++; else if(s==='echec') e++;});
+  const n=sp.items.length; return l===n?ST_COL.ok:(e&&!l)?ST_COL.ko:(l||e)?ST_COL.mix:ST_COL.afaire;
+}
+function renderSuivi(){
+  if(!user) return;
+  const tours=suiviData(), date=curDate(), xpt=curXpt();
+  $('suiviTitle').textContent='Suivi des livraisons — '+fmtD(date)+' · '+xpt;
+  const T=tours.reduce((s,t)=>({n:s.n+t.n,l:s.l+t.l,e:s.e+t.e,rest:s.rest+t.rest,last:Math.max(s.last,t.last)}),{n:0,l:0,e:0,rest:0,last:0});
+  const ago=ms=>{const m=Math.floor((Date.now()-ms)/60000); return m<60?m+' min':Math.floor(m/60)+' h '+pad(m%60);};
+  const bar=(l,e,n)=>'<div class="bar"><i style="width:'+(n?l/n*100:0)+'%;background:var(--ok)"></i><i style="width:'+(n?e/n*100:0)+'%;background:var(--err)"></i></div>';
+  $('tSuivi').innerHTML=tours.length?'<table><thead><tr><th>Tournée</th><th>Driver</th><th class="n">Colis</th><th class="n">✅ Livrés</th><th class="n">❌ Échecs</th><th class="n">Restants</th><th>Avancement</th><th class="n">%</th><th>Dernière action</th><th></th></tr></thead><tbody>'+
+    tours.map(t=>'<tr'+(t.alert?' class="alert"':'')+'><td><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+t.color+';margin-right:6px"></span><b>'+esc(t.name)+'</b></td>'+
+      '<td>'+(t.driver?esc(t.driver):'<span class="muted">—</span>')+'</td><td class="n">'+num(t.n)+'</td><td class="n pos">'+num(t.l)+'</td><td class="n'+(t.e?' neg':'')+'">'+num(t.e)+'</td><td class="n">'+num(t.rest)+'</td>'+
+      '<td>'+bar(t.l,t.e,t.n)+'</td><td class="n">'+t.pct+' %</td><td>'+(t.last?fmtH(t.last)+' <span class="muted">(il y a '+ago(t.last)+')</span>':'<span class="muted">aucune</span>')+'</td>'+
+      '<td>'+(t.alert?'<span class="tag err">⚠ aucune action depuis '+ago(t.last)+'</span>':t.rest===0?'<span class="tag ok">terminée</span>':!t.last?'<span class="tag mut">pas commencée</span>':'')+'</td></tr>').join('')+
+    '<tr class="tot"><td>Total</td><td></td><td class="n">'+num(T.n)+'</td><td class="n">'+num(T.l)+'</td><td class="n">'+num(T.e)+'</td><td class="n">'+num(T.rest)+'</td><td>'+bar(T.l,T.e,T.n)+'</td><td class="n">'+(T.n?Math.round((T.l+T.e)/T.n*100):0)+' %</td><td>'+(T.last?fmtH(T.last):'—')+'</td><td></td></tr></tbody></table>'
+    :'<div class="empty">Aucune tournée enregistrée pour le '+fmtD(date)+' ('+esc(xpt)+').</div>';
+  // liste des échecs
+  const byTn=new Map(); tours.forEach(t=>t.stopList.forEach(sp=>sp.items.forEach(a=>byTn.set(a.tn,{t,sp,a}))));
+  const fails=[...dbStatuts.values()].filter(r=>r.statut==='echec'&&byTn.has(r.tn)).sort((a,b)=>String(b.action_le).localeCompare(String(a.action_le)));
+  $('tEchecs').innerHTML=fails.length?'<table><thead><tr><th>Heure</th><th>Tournée</th><th>Arrêt</th><th>Client</th><th>Téléphone</th><th>Motif</th><th>Commentaire</th><th>TN</th></tr></thead><tbody>'+
+    fails.map(r=>{const x=byTn.get(r.tn); return '<tr><td>'+fmtH(Date.parse(r.action_le))+'</td><td><b>'+esc(x.t.name)+'</b></td><td>'+esc(x.a.position_label||x.sp.label)+'</td>'+
+      '<td>'+esc(x.a.contact_name||'')+'</td><td>'+(phoneOk(x.a.contact_phone)?esc(x.a.contact_phone):'<span class="muted">—</span>')+'</td><td><span class="tag err">'+esc(MOTIFS[r.motif]||r.motif)+'</span></td>'+
+      '<td class="wr">'+esc(r.commentaire||'')+'</td><td style="font-family:Courier New,monospace;font-size:12px">'+esc(r.tn)+'</td></tr>';}).join('')+'</tbody></table>'
+    :'<div class="muted" style="font-size:13px">Aucun échec enregistré.</div>';
+  renderGmap(tours);
+}
+// ── Carte globale ──
+function initGmap(){
+  if(gmap||!window.L) return;
+  gmap=L.map('gmap');
+  L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',subdomains:'abc',maxZoom:20}).addTo(gmap);
+  gLayer=L.layerGroup().addTo(gmap); gmap.setView([45.75,4.85],10);
+}
+function renderGmap(tours){
+  if(!window.L){$('gNote').textContent='Carte indisponible (bibliothèque non chargée).'; return;}
+  $('gLegend').innerHTML=tours.map(t=>'<label class="'+(gHidden.has(t.name)?'off':'')+'" data-gt="'+esc(t.name)+'"><span class="sw" style="background:'+t.color+'"></span>'+esc(t.name)+' <span class="muted">('+(t.l+t.e)+'/'+t.n+')</span></label>').join('');
+  if(!gmap||vtab!=='suivi') return;
+  gLayer.clearLayers(); const pts=[];
+  tours.forEach(t=>{
+    if(gHidden.has(t.name)) return;
+    t.stopList.forEach(sp=>{
+      const a=sp.items.find(x=>x.lat&&x.lon); if(!a) return;
+      const p=[Number(a.lat),Number(a.lon)]; pts.push(p);
+      const icon=L.divIcon({className:'',html:'<div class="gmk" style="background:'+stopColor(sp)+';border-color:'+t.color+'">'+esc(sp.label)+'</div>',iconSize:null,iconAnchor:[12,12]});
+      L.marker(p,{icon}).bindPopup(()=>'<b>Tournée '+esc(t.name)+' · arrêt '+esc(sp.label)+'</b><br/>'+esc([a.address,a.zip_code,a.city].filter(Boolean).join(' '))+'<br/>'+
+        sp.items.map(x=>{const st=dbStatuts.get(x.tn); const s=stOfTn(x.tn);
+          return esc(x.position_label?x.position_label+' · ':'')+esc(x.tn)+' : '+(s==='livre'?'✅ livré':s==='echec'?'❌ '+esc(MOTIFS[st.motif]||st.motif):'à faire')+(st&&s!=='a_faire'?' ('+fmtH(Date.parse(st.action_le))+')':'');}).join('<br/>')).addTo(gLayer);
+    });
+  });
+  if(!gFitted&&pts.length){gmap.fitBounds(L.latLngBounds(pts).pad(.05)); gFitted=true;}
+}
+$('gLegend').addEventListener('click',e=>{const l=e.target.closest('[data-gt]'); if(!l) return; const k=l.dataset.gt; gHidden.has(k)?gHidden.delete(k):gHidden.add(k); renderSuivi();});
+$('date').addEventListener('change',()=>{gFitted=false; gHidden.clear();});
+$('xpt').addEventListener('change',()=>{gFitted=false; gHidden.clear();});
+// ── Exports CSV (séparateur ; pour Excel FR) ──
+function csvDl(rows,name){
+  const txt='\ufeff'+rows.map(r=>r.map(v=>{v=String(v==null?'':v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(';')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'})); a.download=name; a.click();
+}
+$('btnCsvSuivi').addEventListener('click',()=>{
+  const tours=suiviData(); if(!tours.length){alert('Aucune tournée.');return;}
+  const rows=[['Date','XPT','Tournée','Driver','Colis','Livrés','Échecs','Restants','Avancement (%)','Dernière action','Alerte']];
+  tours.forEach(t=>rows.push([fmtD(curDate()),curXpt(),t.name,t.driver,t.n,t.l,t.e,t.rest,t.pct,t.last?fmtH(t.last):'',t.alert?'aucune action depuis plus de '+$('seuil').value+' min':'']));
+  const T=tours.reduce((s,t)=>({n:s.n+t.n,l:s.l+t.l,e:s.e+t.e,r:s.r+t.rest}),{n:0,l:0,e:0,r:0});
+  rows.push([fmtD(curDate()),curXpt(),'TOTAL','',T.n,T.l,T.e,T.r,T.n?Math.round((T.l+T.e)/T.n*100):0,'','']);
+  csvDl(rows,'livraisons_'+curXpt()+'_'+curDate()+'.csv');
+});
+$('btnCsvEchecs').addEventListener('click',()=>{
+  const tours=suiviData(), byTn=new Map(); tours.forEach(t=>t.stopList.forEach(sp=>sp.items.forEach(a=>byTn.set(a.tn,{t,sp,a}))));
+  const fails=[...dbStatuts.values()].filter(r=>r.statut==='echec'&&byTn.has(r.tn));
+  if(!fails.length){alert('Aucun échec.');return;}
+  const rows=[['Date','XPT','Tournée','Arrêt','Client','Téléphone','Motif','Commentaire','Heure','TN']];
+  fails.forEach(r=>{const x=byTn.get(r.tn); rows.push([fmtD(curDate()),curXpt(),x.t.name,x.a.position_label||x.sp.label,x.a.contact_name||'',x.a.contact_phone||'',MOTIFS[r.motif]||r.motif,r.commentaire||'',fmtH(Date.parse(r.action_le)),r.tn]);});
+  csvDl(rows,'echecs_'+curXpt()+'_'+curDate()+'.csv');
+});
+
 // même règle que la feuille du driver
 function phoneOk(p){const d=String(p||'').replace(/\D/g,''); return d.length>=9&&d.length<=15&&!/^(\d)\1+$/.test(d);}
 </script>

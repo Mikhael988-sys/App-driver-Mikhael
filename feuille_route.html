@@ -7,38 +7,42 @@
 <meta name="referrer" content="no-referrer"/>
 <meta name="robots" content="noindex"/>
 <title>Feuille de route</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-:root{--bg:#0d1117;--surf:#161b22;--surf2:#1e2736;--border:rgba(255,255,255,.12);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#2ea84a;--err:#e53935;
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1e2736;--border:rgba(255,255,255,.12);--fg:#e6edf3;--muted:#8b949e;--accent:#f0b429;--ok:#2ea84a;--err:#e53935;--warn:#f08c00;
   --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;line-height:1.4;padding-bottom:calc(var(--safe-bot) + 24px)}
-.top{position:sticky;top:0;z-index:10;background:var(--surf);border-bottom:2px solid var(--accent);padding:calc(var(--safe-top) + 10px) 14px 10px}
-.top h1{font-size:18px;font-weight:800}
+.top{position:sticky;top:0;z-index:1000;background:var(--surf);border-bottom:2px solid var(--accent);padding:calc(var(--safe-top) + 10px) 14px 10px}
+.top-h{display:flex;align-items:flex-start;gap:8px}
+.top h1{font-size:18px;font-weight:800;flex:1;min-width:0}
 .top .sub{font-size:13px;color:var(--muted);margin-top:2px}
+.sync{flex-shrink:0;font-size:12px;font-weight:800;padding:4px 9px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);color:var(--muted);white-space:nowrap}
+.sync.ok{color:var(--ok)}.sync.wait{color:var(--accent);border-color:var(--accent)}
 .prog{display:flex;align-items:center;gap:10px;margin-top:8px}
-.bar{flex:1;height:8px;background:var(--surf2);border-radius:4px;overflow:hidden}
-.bar>i{display:block;height:100%;background:var(--accent)}
-.prog b{font-size:14px;white-space:nowrap}
+.bar{flex:1;height:8px;background:var(--surf2);border-radius:4px;overflow:hidden;display:flex}
+.bar>i{display:block;height:100%}
+.prog b{font-size:13px;white-space:nowrap}
 .wrap{padding:12px;max-width:720px;margin:0 auto}
 .state{border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:10px;border:1px solid var(--border);background:var(--surf2);color:var(--muted)}
 .state.warn{border-color:var(--accent);color:var(--accent);background:rgba(240,180,41,.08)}
 .state.err{border-color:var(--err);color:var(--err);background:rgba(229,57,53,.1)}
 .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
-.chk{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--muted)}
-.chk input{width:20px;height:20px;accent-color:var(--accent)}
 details.tpl{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:14px}
 details.tpl summary{cursor:pointer;font-weight:800;color:var(--muted)}
 details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:15px;font-family:inherit}
 .sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin:16px 2px 8px}
-.stop{background:var(--surf);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
-.stop.done{opacity:.5}
+.stop{background:var(--surf);border:1px solid var(--border);border-left:5px solid #6e7681;border-radius:14px;margin-bottom:10px;overflow:hidden}
+.stop.s-ok{border-left-color:var(--ok)}.stop.s-ko{border-left-color:var(--err)}.stop.s-mix{border-left-color:var(--warn)}
+.stop.fin{opacity:.62}
 .stop-h{display:flex;gap:10px;padding:12px 12px 6px;align-items:flex-start}
-.num{min-width:42px;height:42px;border-radius:10px;background:var(--surf2);color:var(--accent);font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center;font-family:'Courier New',monospace;flex-shrink:0}
+.num{min-width:42px;height:42px;padding:0 4px;border-radius:10px;background:var(--surf2);color:var(--accent);font-weight:900;font-size:17px;display:flex;align-items:center;justify-content:center;font-family:'Courier New',monospace;flex-shrink:0;white-space:nowrap}
 .addr{flex:1;min-width:0}
 .addr .a1{font-size:17px;font-weight:800;word-wrap:break-word}
 .addr .a2{font-size:14px;color:var(--muted)}
-.fait{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:800;color:var(--muted);flex-shrink:0}
-.fait input{width:30px;height:30px;accent-color:var(--ok)}
+.pill{flex-shrink:0;font-size:11px;font-weight:900;padding:4px 8px;border-radius:8px;background:var(--surf2);color:var(--muted);white-space:nowrap}
+.pill.s-ok{background:rgba(46,168,74,.18);color:var(--ok)}.pill.s-ko{background:rgba(229,57,53,.18);color:var(--err)}.pill.s-mix{background:rgba(240,140,0,.18);color:var(--warn)}
 .contact{padding:6px 12px 10px;border-top:1px solid var(--border)}
 .contact .who{font-size:15px;font-weight:700;margin:4px 0 6px}
 .contact .who small{font-weight:400;color:var(--muted)}
@@ -46,16 +50,25 @@ details.tpl textarea{width:100%;min-height:80px;margin-top:8px;padding:10px;bord
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;font-weight:800;text-decoration:none;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:96px}
 .btn.call{background:var(--ok);border-color:var(--ok);color:#fff}
 .btn.nav{background:var(--accent);border-color:var(--accent);color:#0d1117}
-.colis{padding:4px 12px 10px}
-.cl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-family:'Courier New',monospace;word-break:break-all;padding:2px 0}
-.cl span{flex:1;min-width:0}
+.colis{padding:4px 12px 10px;border-top:1px solid var(--border)}
+.cl{padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+.cl:last-child{border-bottom:none}
+.cl-h{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-family:'Courier New',monospace;word-break:break-all}
+.cl-h span{flex:1;min-width:0}
+.cl-st{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
 .mini{flex-shrink:0;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:12px;font-weight:800;font-family:inherit;cursor:pointer}
+.sbtn{flex:1 1 auto;padding:9px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:14px;font-weight:800;font-family:inherit;cursor:pointer}
+.sbtn.liv{border-color:var(--ok);color:var(--ok)}.sbtn.ech{border-color:var(--err);color:var(--err)}
+.sbtn.all{background:var(--ok);border-color:var(--ok);color:#fff;margin:0 12px 10px;width:calc(100% - 24px)}
+.badge{font-size:13px;font-weight:800;padding:3px 8px;border-radius:7px;flex:1 1 auto}
+.badge.liv{background:rgba(46,168,74,.15);color:var(--ok)}.badge.ech{background:rgba(229,57,53,.15);color:var(--err)}
+.badge small{display:block;font-weight:600;color:var(--muted);font-size:12px}
 .sent{display:inline-flex;align-items:center;gap:6px;margin:0 12px 8px;padding:3px 9px;border-radius:8px;background:rgba(46,168,74,.15);color:var(--ok);font-size:12px;font-weight:800}
 .sent button{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit}
 .notify{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .notify .btn{flex:0 1 auto}
 .notify small{color:var(--muted);font-size:13px}
-.serie{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surf);border-top:2px solid var(--accent);padding:12px 14px calc(var(--safe-bot) + 12px);box-shadow:0 -8px 24px rgba(0,0,0,.5)}
+.serie{position:fixed;left:0;right:0;bottom:0;z-index:1100;background:var(--surf);border-top:2px solid var(--accent);padding:12px 14px calc(var(--safe-bot) + 12px);box-shadow:0 -8px 24px rgba(0,0,0,.5)}
 .serie-h{font-size:15px;font-weight:800;margin-bottom:4px}
 .serie-n{font-size:14px;color:var(--muted);margin-bottom:10px;line-height:1.4}
 body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
@@ -64,23 +77,48 @@ body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
 .search input:focus{border-color:var(--accent)}
 .search button{flex-shrink:0;width:48px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:18px;font-weight:800;cursor:pointer}
 .qcount{font-size:13px;color:var(--muted);font-weight:700;margin:0 2px 10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:7px 11px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);color:var(--muted);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.chip.on{border-color:var(--accent);color:var(--accent);background:rgba(240,180,41,.1)}
+.tabs{display:flex;gap:0;margin-bottom:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.tab{flex:1;padding:11px;border:none;background:var(--surf);color:var(--muted);font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
+.tab.on{background:rgba(240,180,41,.12);color:var(--accent)}
 .navrow{display:flex;gap:6px;padding:0 12px 12px}
 .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.6}
-#toast{position:fixed;bottom:calc(var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;border:1px solid var(--border)}
+/* carte */
+#mapBox{position:relative}
+#map{height:calc(100vh - 230px);min-height:340px;border-radius:14px;border:1px solid var(--border);background:#1c2128}
+.mapmsg{font-size:12px;font-weight:700;color:var(--muted);margin:6px 2px 0}
+.mapmsg.warn{color:var(--accent)}
+.maptools{position:absolute;top:10px;right:10px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.maptools button{padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surf);color:var(--fg);font-size:13px;font-weight:800;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.4);cursor:pointer}
+.mk{border-radius:14px;min-width:26px;height:26px;padding:0 6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:#fff;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);font-family:'Courier New',monospace;white-space:nowrap}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--surf);color:var(--fg)}
+.leaflet-popup-content{margin:0;width:300px!important;max-height:58vh;overflow-y:auto}
+.leaflet-popup-content .stop{margin:0;border:none;border-radius:0}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
+.leaflet-container a.btn{color:var(--fg)}.leaflet-container a.btn.call{color:#fff}.leaflet-container a.btn.nav{color:#0d1117}
+/* fenêtre « échec » */
+.modal{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.75);display:none;align-items:flex-end;justify-content:center}
+.modal>div{background:var(--surf);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 16px calc(var(--safe-bot) + 18px);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:17px;margin-bottom:4px}
+.motif{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;margin-top:8px;font-size:15px;font-weight:700;cursor:pointer}
+.motif input{width:20px;height:20px;accent-color:var(--err)}
+.modal textarea{width:100%;min-height:70px;margin-top:10px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--fg);font-size:15px;font-family:inherit}
+#toast{position:fixed;bottom:calc(var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:2100;border:1px solid var(--border)}
 #toast.show{opacity:1}
 </style>
 </head>
 <body>
 <div class="top">
-  <h1 id="title">🗺 Feuille de route</h1>
+  <div class="top-h"><h1 id="title">🗺 Feuille de route</h1><span class="sync" id="sync" style="display:none"></span></div>
   <div class="sub" id="sub"></div>
-  <div class="prog" id="prog" style="display:none"><div class="bar"><i id="barFill" style="width:0"></i></div><b id="progTxt"></b></div>
+  <div class="prog" id="prog" style="display:none"><div class="bar"><i id="barOk" style="width:0;background:var(--ok)"></i><i id="barKo" style="width:0;background:var(--err)"></i></div><b id="progTxt"></b></div>
 </div>
 <div class="wrap">
   <div id="state" class="state">⏳ Chargement…</div>
   <div id="tools" style="display:none">
     <div class="tools">
-      <label class="chk"><input type="checkbox" id="hideDone"/> Masquer les arrêts faits</label>
       <button class="btn" id="btnRefresh" style="flex:0 0 auto;min-width:0">🔄 Actualiser</button>
     </div>
     <div class="notify">
@@ -93,14 +131,21 @@ body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
       <div style="font-size:12px;color:var(--muted);margin-top:4px">{NOM} = nom du client · {MARQUE} = CAINIAO / GOFO · {TN} = numéro(s) de colis · {ADRESSE} = adresse, code postal et ville. Mémorisé sur ce téléphone.</div>
       <button class="btn" id="btnTplReset" style="margin-top:8px;flex:0 0 auto">↺ Réinitialiser le modèle</button>
     </details>
-    <!-- Recherche dans les arrêts (non mémorisée) -->
+    <!-- Recherche dans les arrêts (non mémorisée) : filtre la liste et la carte -->
     <div class="search">
       <input type="search" id="q" placeholder="🔍 Nom, adresse, code postal, ville, TN…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"/>
       <button id="qClear" title="Effacer la recherche" style="display:none">✕</button>
     </div>
+    <div class="chips" id="chips"></div>
     <div class="qcount" id="qCount" style="display:none"></div>
+    <div class="tabs"><button class="tab on" data-tab="liste">📋 Liste</button><button class="tab" data-tab="carte">🗺 Carte</button></div>
   </div>
   <div id="list"></div>
+  <div id="mapBox" style="display:none">
+    <div id="map"></div>
+    <div class="maptools"><button id="btnLocate">📍 Me localiser</button><button id="btnFit">⤢ Toute la tournée</button></div>
+    <div class="mapmsg" id="mapMsg"></div>
+  </div>
 </div>
 <!-- Envoi en série : un client à la fois, jamais de SMS groupé -->
 <div class="serie" id="serie" style="display:none">
@@ -108,18 +153,31 @@ body.serie-on{padding-bottom:calc(var(--safe-bot) + 170px)}
   <div class="serie-n" id="serieNext"></div>
   <div class="btns"><button class="btn call" id="serieGo">Suivant ▶</button><button class="btn" id="serieStop">Arrêter</button></div>
 </div>
+<!-- Échec : motif obligatoire -->
+<div class="modal" id="failModal"><div>
+  <h3>❌ Échec de livraison</h3>
+  <div style="font-size:13px;color:var(--muted)" id="failTn"></div>
+  <div id="failMotifs"></div>
+  <textarea id="failCom" maxlength="500" placeholder="Commentaire (facultatif)"></textarea>
+  <div class="btns" style="margin-top:12px"><button class="btn" id="failCancel">Annuler</button><button class="btn" id="failOk" style="background:var(--err);border-color:var(--err);color:#fff">Enregistrer l'échec</button></div>
+</div></div>
 <div id="toast"></div>
 
 <script>
 // ══════════════ CONFIGURATION ══════════════
 const SUPA_URL='https://kctgcckyqlmlgenzfwun.supabase.co';
-const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';   // clé publique : la RPC ne renvoie rien sans jeton valide
+const SUPA_KEY='sb_publishable_uwMTvjp_ozu4QIKpmKdqLA_oIyAPBgR';   // clé publique : les RPC ne font rien sans jeton valide
 const SMS_DEF='Bonjour {NOM}, je suis votre livreur {MARQUE}, je vais vous livrer aujourd\'hui votre colis {TN}.\n'+
   'Je vous appellerai avec un 04 lorsque j\'approcherai de votre adresse {ADRESSE}.\n'+
   'N\'hésitez pas à me transmettre par SMS toute information qui pourrait faciliter la livraison.\n'+
   'Bien cordialement,\nVotre livreur';
 const BRANDS=[[/^DOFR/,'CAINIAO'],[/^GFFR/,'GOFO']];   // marque selon le début du TN
+const MOTIFS=[['absent','Absent'],['adresse_introuvable','Adresse introuvable'],['acces_impossible','Accès impossible (digicode / portail)'],
+  ['refuse','Refusé'],['endommage','Colis endommagé'],['autre','Autre']];
 const CACHE_KEY='fr_feuille', DONE_KEY='fr_fait', SENT_KEY='fr_sms_envoyes', SERIE_KEY='fr_serie', TPL_KEY='fr_sms_modele';
+const STAT_KEY='fr_statuts', QUEUE_KEY='fr_statuts_file', ROUTE_KEY='fr_itineraire';
+const GRACE_MS=3*3600000;   // statuts acceptés par le serveur jusqu'à 3 h après la fin du jour de livraison
+const OSRM='https://router.project-osrm.org/route/v1/driving/';
 
 // ══════════════ UTILITAIRES ══════════════
 const $=id=>document.getElementById(id);
@@ -131,7 +189,7 @@ const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().repla
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function lsGet(k,def){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?def:v;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-function toast(m){const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('show'),2000);}
+function toast(m,d){const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('show'),d||2000);}
 // Numéro utilisable : 9 à 15 chiffres, pas un seul chiffre répété (« . », « 0000000000 » refusés)
 function phoneOk(p){const d=String(p||'').replace(/\D/g,''); return d.length>=9&&d.length<=15&&!/^(\d)\1+$/.test(d);}
 const telOf=p=>{const s=String(p||'').trim(); return (s.startsWith('+')?'+':'')+s.replace(/\D/g,'');};
@@ -141,19 +199,28 @@ const todayParis=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris'}).
 
 // ══════════════ JETON ET CACHE ══════════════
 const jeton=new URLSearchParams(location.search).get('t')||'';
-let data=null, fetchedAt=0, done={}, sent={}, serieOn=false;
-// Les données d'un autre lien, ou d'un jour passé, ne restent pas sur le téléphone
-function purge(){try{[CACHE_KEY,DONE_KEY,SENT_KEY,SERIE_KEY].forEach(k=>localStorage.removeItem(k));}catch(e){} sent={}; serieOn=false;}
+let data=null, fetchedAt=0, sent={}, serieOn=false, stat={}, filter='tous', tab='liste';
+let map=null, markers=null, routeLayer=null, meLayer=null, routeSig='', reopenIdx=null, tileErr=0, fitted=false, routeMsg='';   // carte
+// Les données d'un autre lien, ou d'un jour passé, ne restent pas sur le téléphone.
+// Seule la file des statuts pas encore envoyés est gardée (jusqu'à son envoi ou jusqu'à 3 h).
+function purge(){try{[CACHE_KEY,DONE_KEY,SENT_KEY,SERIE_KEY,STAT_KEY,ROUTE_KEY].forEach(k=>localStorage.removeItem(k));}catch(e){} sent={}; serieOn=false; stat={}; routeSig=''; }
 (function restore(){
   const c=lsGet(CACHE_KEY,null);
   if(!c||c.t!==jeton||!c.data||String(c.data.date)<todayParis()){ if(c) purge(); return; }
   data=c.data; fetchedAt=c.at||0;
-  const d=lsGet(DONE_KEY,null); done=d&&d.t===jeton?d.done||{}:{};
   const s=lsGet(SENT_KEY,null); sent=s&&s.t===jeton?s.sent||{}:{};
+  const st=lsGet(STAT_KEY,null); stat=st&&st.t===jeton?st.stat||{}:{};
   serieOn=lsGet(SERIE_KEY,null)===jeton;
+  // anciennes cases « fait » : deviennent « livré » sur le téléphone et partent dans la file d'envoi
+  const d=lsGet(DONE_KEY,null);
+  if(d&&d.t===jeton&&d.done){
+    Object.entries(d.done).forEach(([tn,at])=>{if(!stat[tn]) setStatus(tn,'livre','','',Number(at)||Date.now(),true);});
+    saveStat();
+  }
+  try{localStorage.removeItem(DONE_KEY);}catch(e){}
 })();
-function saveDone(){lsSet(DONE_KEY,{t:jeton,done});}
 function saveSent(){lsSet(SENT_KEY,{t:jeton,sent});}
+function saveStat(){lsSet(STAT_KEY,{t:jeton,stat});}
 
 async function load(){
   if(!jeton){showState('err','Lien incomplet : ouvrez le lien reçu par SMS ou scannez le QR code de votre chef d\'équipe.'); return;}
@@ -166,13 +233,15 @@ async function load(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const res=await r.json();
     if(!res||res.statut!=='ok'){
-      // lien expiré, révoqué ou inconnu : on efface tout ce qui est gardé sur le téléphone
-      purge(); data=null; done={}; $('list').innerHTML=''; $('tools').style.display='none'; $('prog').style.display='none'; renderSerie();
-      showState('err',res&&res.statut==='expire'?'⛔ Ce lien a expiré ou a été désactivé. Demandez un nouveau lien à votre chef d\'équipe.':'⛔ Lien inconnu. Vérifiez le lien reçu ou demandez-en un nouveau à votre chef d\'équipe.');
+      // lien expiré, révoqué ou inconnu : on efface tout ce qui est gardé sur le téléphone (sauf la file des statuts)
+      purge(); data=null; $('list').innerHTML=''; $('tools').style.display='none'; $('prog').style.display='none'; $('mapBox').style.display='none'; renderSerie();
+      endMsg=res&&res.statut==='expire'?'⛔ Ce lien a expiré ou a été désactivé. Demandez un nouveau lien à votre chef d\'équipe.':'⛔ Lien inconnu. Vérifiez le lien reçu ou demandez-en un nouveau à votre chef d\'équipe.';
+      renderSync(); if(queueCount()) flush();
       return;
     }
-    data=res; fetchedAt=Date.now();
+    data=res; fetchedAt=Date.now(); endMsg='';
     lsSet(CACHE_KEY,{t:jeton,at:fetchedAt,data});
+    mergeServerStatus();
     showState('','✓ À jour ('+fmtHM(fetchedAt)+')');
     render();
   }catch(e){
@@ -182,9 +251,76 @@ async function load(){
 }
 function showState(cls,txt){const s=$('state'); s.className='state'+(cls?' '+cls:''); s.textContent=txt;}
 setInterval(()=>{if(document.visibilityState==='visible') load();},5*60000);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-fetchedAt>60000) load();});
-window.addEventListener('online',load);
-$('btnRefresh').addEventListener('click',load);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){flush(); if(Date.now()-fetchedAt>60000) load();}});
+window.addEventListener('online',()=>{flush(); load();});
+$('btnRefresh').addEventListener('click',()=>{flush(); load();});
+
+// ══════════════ STATUTS LIVRÉ / ÉCHEC ══════════════
+// stat : TN → {s:'a_faire'|'livre'|'echec', motif, com, at}. Envoyés par la RPC fr_statut (protégée par le jeton).
+const stOf=tn=>(stat[tn]&&stat[tn].s)||'a_faire';
+// File d'envoi gardée sur le téléphone : jeton → {until, rows:[{tn,statut,motif,commentaire,action_le}]}
+function qLoad(){const q=lsGet(QUEUE_KEY,{}); return q&&typeof q==='object'&&!Array.isArray(q)?q:{};}
+function qSave(q){lsSet(QUEUE_KEY,q);}
+function queueCount(){const q=qLoad(), now=Date.now(); return Object.values(q).reduce((n,x)=>n+(x.until>now?(x.rows||[]).length:0),0);}
+const pendingTn=tn=>{const x=qLoad()[jeton]; return !!(x&&x.rows.some(r=>r.tn===tn));};
+function setStatus(tn,s,motif,com,at,silent){
+  at=at||Date.now();
+  stat[tn]={s,motif:s==='echec'?motif:'',com:s==='echec'?com||'':'',at};
+  const q=qLoad(), until=data&&data.expire_le?Date.parse(data.expire_le)+GRACE_MS:Date.now()+GRACE_MS;
+  const x=q[jeton]||{until,rows:[]}; x.until=until;
+  x.rows=x.rows.filter(r=>r.tn!==tn);   // seule la dernière action de chaque colis est envoyée
+  x.rows.push({tn,statut:s,motif:s==='echec'?motif:null,commentaire:s==='echec'?com||'':'',action_le:new Date(at).toISOString()});
+  q[jeton]=x; qSave(q);
+  if(!silent){saveStat(); render(); flushSoon();}
+}
+// Statuts déjà enregistrés sur le serveur (autre téléphone, réinstallation…) ; une action pas encore envoyée garde la priorité
+function mergeServerStatus(){
+  (data.arrets||[]).forEach(a=>{
+    if(!a.statut) return;
+    const at=Date.parse(a.statut_le)||0, loc=stat[a.tn];
+    if(!loc||(!pendingTn(a.tn)&&at>=loc.at)) stat[a.tn]={s:a.statut,motif:a.motif||'',com:a.commentaire||'',at};
+  });
+  saveStat();
+}
+let flushing=false, flushTimer=null;
+function flushSoon(){clearTimeout(flushTimer); flushTimer=setTimeout(flush,600);}
+async function flush(){
+  if(flushing) return; flushing=true;
+  try{
+    let q=qLoad(); const now=Date.now();
+    for(const t of Object.keys(q)){ if(!(q[t].until>now)||!(q[t].rows||[]).length) delete q[t]; }
+    qSave(q);
+    for(const t of Object.keys(q)){
+      const batch=q[t].rows.slice(0,200);
+      let res;
+      try{
+        const r=await fetch(SUPA_URL+'/rest/v1/rpc/fr_statut',{method:'POST',cache:'no-store',
+          headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_jeton:t,p_rows:batch})});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        res=await r.json();
+      }catch(e){break;}   // pas de réseau : nouvel essai plus tard
+      q=qLoad(); const x=q[t]; if(!x) continue;
+      if(res&&res.statut==='ok'){
+        // envoyées (acceptées ou refusées définitivement) : retirées de la file, sauf si le colis a été modifié depuis
+        x.rows=x.rows.filter(r=>!batch.some(b=>b.tn===r.tn&&b.action_le===r.action_le));
+        if(res.rejets&&res.rejets.length) toast('⚠ '+res.rejets.length+' statut(s) refusé(s) : '+res.rejets[0].raison,4000);
+      }else{
+        delete q[t];   // lien révoqué, inconnu ou expiré depuis plus de 3 h : ces statuts ne peuvent plus être envoyés
+        toast('⚠ Statuts non envoyés : lien désactivé',4000);
+      }
+      if(x.rows&&!x.rows.length) delete q[t];
+      qSave(q);
+    }
+  }finally{flushing=false; renderSync();}
+}
+setInterval(()=>{if(queueCount()) flush();},20000);
+let endMsg='';   // message affiché quand le lien n'est plus valable
+function renderSync(){
+  const n=queueCount(), el=$('sync');
+  if(!data&&endMsg) showState('err',endMsg+(n?' ⏳ '+n+' statut'+(n>1?'s':'')+' en attente d\'envoi (jusqu\'à 3 h).':''));
+  if(!data&&!n){el.style.display='none';return;}
+  el.style.display=''; el.className='sync '+(n?'wait':'ok'); el.textContent=n?'⏳ '+n+' en attente':'✓ synchronisé';
+}
 
 // ══════════════ ARRÊTS ══════════════
 // Adresse complète comparable : « 1 Place Bellecour » + « 69002 » + « Lyon » = « 1 Place Bellecour 69002 Lyon » (adresse du géocodeur)
@@ -206,9 +342,21 @@ function buildStops(){
     if(prev&&prev.key===key&&norm(a.adresse)) prev.colis.push(a);
     else stops.push({key,origine:orig,colis:[a]});
   });
+  let idx=0; stops.forEach(s=>{if(s.origine==='ajout_tri') idx++; const a=s.colis[0]; s.label=String(a.position||a.position_label||'+'+idx);});
   return stops;
 }
-const stopDone=s=>s.colis.every(c=>done[c.tn]);
+// État d'un arrêt : gris = à faire, vert = tous livrés, rouge = échec(s) sans livraison, orange = mixte ou partiel
+function stopState(s){
+  let a=0,l=0,e=0; s.colis.forEach(c=>{const x=stOf(c.tn); x==='livre'?l++:x==='echec'?e++:a++;});
+  const n=s.colis.length;
+  const cls=l===n?'s-ok':(e&&!l)?'s-ko':(l||e)?'s-mix':'';
+  const txt=l===n?'Livré':(e===n?'Échec':(e&&!l?'Échec · '+a+' à faire':(l||e)?'Partiel '+(l+e)+'/'+n:'À faire'));
+  return {a,l,e,n,cls,txt,fin:a===0};
+}
+const FILTERS=[['tous','Tous'],['afaire','À faire'],['livres','Livrés'],['echecs','Échecs']];
+const inFilter=(st,f)=>f==='tous'||(f==='afaire'&&st.a>0)||(f==='livres'&&st.l===st.n)||(f==='echecs'&&st.e>0);
+const stopDone=s=>stopState(s).fin;
+
 // ══════════════ CLIENTS ET MESSAGE SMS ══════════════
 // Un client = un numéro valide. Les colis d'un même arrêt sans numéro valide rejoignent le client de cet arrêt.
 // Un seul message par client, avec tous ses TN.
@@ -275,12 +423,46 @@ $('btnSerie').addEventListener('click',()=>{
 $('serieGo').addEventListener('click',()=>{const next=buildClients().clients.find(c=>!sent[c.key]); if(next) sendClient(next); else renderSerie();});
 $('serieStop').addEventListener('click',()=>{serieOn=false; try{localStorage.removeItem(SERIE_KEY);}catch(e){} renderSerie();});
 
-// ══════════════ AFFICHAGE ══════════════
+// ══════════════ AFFICHAGE D'UN ARRÊT (liste et fiche de la carte) ══════════════
 function navHref(s,app){
   const c=s.colis.find(x=>x.lat&&x.lon)||s.colis[0], q=[c.adresse,c.cp,c.ville].filter(Boolean).join(' ');
   if(app==='waze') return c.lat&&c.lon?'https://waze.com/ul?ll='+c.lat+','+c.lon+'&navigate=yes':'https://waze.com/ul?q='+encodeURIComponent(q)+'&navigate=yes';
   return 'https://www.google.com/maps/dir/?api=1&destination='+(c.lat&&c.lon?c.lat+','+c.lon:encodeURIComponent(q));
 }
+const motifTxt=m=>(MOTIFS.find(x=>x[0]===m)||[0,m||'Échec'])[1];
+function colisHtml(c){
+  const st=stat[c.tn], s=stOf(c.tn);
+  return '<div class="cl"><div class="cl-h"><span>'+(c.position_label?'<b style="color:var(--accent);font-family:inherit">'+esc(c.position_label)+'</b> · ':'')+esc(c.tn)+(c.lp?' · '+esc(c.lp):'')+'</span>'+
+    '<button class="mini" data-copy="'+esc(c.tn)+'">📋 TN</button></div><div class="cl-st">'+
+    (s==='a_faire'?'<button class="sbtn liv" data-st="livre" data-tn="'+esc(c.tn)+'">✅ Livré</button><button class="sbtn ech" data-st="echec" data-tn="'+esc(c.tn)+'">❌ Échec</button>'
+      :'<span class="badge '+(s==='livre'?'liv">✅ Livré':'ech">❌ '+esc(motifTxt(st.motif)))+(st.at?' · '+fmtHM(st.at):'')+(s==='echec'&&st.com?'<small>'+esc(st.com)+'</small>':'')+'</span>'+
+       '<button class="mini" data-st="a_faire" data-tn="'+esc(c.tn)+'">↩ Annuler</button>')+'</div></div>';
+}
+function stopHtml(s,i,clientOf){
+  const a=s.colis[0], st=stopState(s);
+  const sentKeys=[...new Set(s.colis.map(c=>clientOf.get(c)).filter(cl=>cl&&sent[cl.key]).map(cl=>cl.key))];
+  // contacts distincts de l'arrêt (plusieurs colis peuvent avoir le même client)
+  const contacts=[]; s.colis.forEach(c=>{const k=norm(c.nom)+'|'+String(c.tel||'').replace(/\D/g,'')+'|'+norm(c.email); if(!contacts.some(x=>x.k===k)) contacts.push({k,c});});
+  return '<div class="stop '+st.cls+(st.fin?' fin':'')+'"><div class="stop-h"><div class="num">'+esc(s.label)+'</div><div class="addr">'+
+    '<div class="a1">'+(a.adresse?esc(a.adresse):'<span style="color:var(--muted)">Adresse inconnue</span>')+'</div>'+
+    '<div class="a2">'+esc([a.cp,a.ville].filter(Boolean).join(' '))+(s.colis.length>1?' · <b style="color:var(--accent)">'+s.colis.length+' colis</b>':'')+'</div></div>'+
+    '<span class="pill '+st.cls+'">'+esc(st.txt)+'</span></div>'+
+    (sentKeys.length?'<div class="sent">✉️ SMS envoyé '+fmtHM(Math.max(...sentKeys.map(k=>sent[k])))+' <button data-unsent="'+esc(sentKeys.join(','))+'">annuler</button></div>':'')+
+    contacts.map(({c})=>{
+      const tel=phoneOk(c.tel), mail=emailOk(c.email), cl=clientOf.get(c);
+      return '<div class="contact"><div class="who">'+(c.nom?esc(c.nom):'<small>Nom inconnu</small>')+(tel?' <small>· '+esc(c.tel)+'</small>':'')+'</div>'+
+        ((tel||mail)?'<div class="btns">'+
+          (tel?'<a class="btn call" href="tel:'+esc(telOf(c.tel))+'">📞 Appeler</a>'+(cl?'<button class="btn" data-sms="'+esc(cl.key)+'">💬 SMS</button>':'')+'<button class="btn" data-copy="'+esc(c.tel)+'">📋 Numéro</button>':'')+
+          (mail?'<button class="btn" data-copy="'+esc(String(c.email).trim())+'">📋 E-mail</button>':'')+'</div>'
+          :'<div style="font-size:13px;color:var(--muted)">Pas de numéro ni d\'e-mail utilisable</div>')+'</div>';
+    }).join('')+
+    '<div class="colis">'+s.colis.map(colisHtml).join('')+'</div>'+
+    (s.colis.length>1&&st.a>1?'<button class="sbtn all" data-all="'+i+'">✅ Tout livrer ('+st.a+' colis)</button>':'')+
+    '<div class="navrow"><a class="btn nav" href="'+esc(navHref(s,'gmaps'))+'" target="_blank" rel="noopener">🧭 Google Maps</a><a class="btn nav" href="'+esc(navHref(s,'waze'))+'" target="_blank" rel="noopener">🚗 Waze</a></div></div>';
+}
+
+// ══════════════ AFFICHAGE ══════════════
+let view=null;   // dernier calcul : arrêts, visibles, clients
 function render(){
   if(!data) return;
   document.title='Tournée '+data.tournee+' · Feuille de route';
@@ -288,56 +470,55 @@ function render(){
   $('sub').textContent=data.xpt+' · '+fmtD(data.date)+' · lien valable jusqu\'à minuit';
   $('tools').style.display='';
   if(document.activeElement!==$('smsTpl')) $('smsTpl').value=smsTpl();
-  const {stops,clients}=buildClients(), nDone=stops.filter(stopDone).length, hide=$('hideDone').checked;
+  const {stops,clients}=buildClients();
   const clientOf=new Map(); clients.forEach(cl=>cl.colis.forEach(c=>clientOf.set(c,cl)));
+  const states=stops.map(stopState);
+  // compteur en haut : arrêts terminés, livrés, échecs
+  const nFin=states.filter(x=>x.fin).length, nL=states.reduce((n,x)=>n+x.l,0), nE=states.reduce((n,x)=>n+x.e,0), nC=states.reduce((n,x)=>n+x.n,0);
   $('prog').style.display='';
-  $('barFill').style.width=(stops.length?nDone/stops.length*100:0)+'%';
-  $('progTxt').textContent=nDone+' / '+stops.length+' arrêts faits';
-  renderSerie();
-  if(!stops.length){$('list').innerHTML='<div class="empty">Aucun arrêt sur cette feuille.</div>';return;}
+  $('barOk').style.width=(nC?nL/nC*100:0)+'%'; $('barKo').style.width=(nC?nE/nC*100:0)+'%';
+  $('progTxt').textContent=nFin+' / '+stops.length+' arrêts · ✅ '+nL+' · ❌ '+nE;
+  $('chips').innerHTML=FILTERS.map(([k,t])=>'<button class="chip'+(filter===k?' on':'')+'" data-filter="'+k+'">'+t+' ('+states.filter(x=>inFilter(x,k)).length+')</button>').join('');
+  renderSerie(); renderSync();
   // recherche : tous les mots doivent se trouver dans le nom, l'adresse, le code postal, la ville, le TN ou le LP No. d'un colis de l'arrêt
   const words=norm($('q').value).split(' ').filter(Boolean);
   const match=s=>!words.length||(h=>words.every(w=>h.includes(w)))(norm(s.colis.map(c=>[c.nom,c.adresse,c.cp,c.ville,c.tn,c.lp,c.position_label].join(' ')).join(' ')));
   $('qClear').style.display=$('q').value?'':'none';
-  let h='', sec='', idx=0, shown=0, found=0;
-  stops.forEach((s,i)=>{
-    const fait=stopDone(s); if(s.origine==='ajout_tri') idx++;
-    if(!match(s)) return;
-    found++;
-    if(hide&&fait) return;
-    shown++;
+  const visible=[]; let found=0;
+  stops.forEach((s,i)=>{ if(!match(s)) return; found++; if(inFilter(states[i],filter)) visible.push(i); });
+  view={stops,states,visible,clientOf};
+  $('qCount').style.display=words.length||filter!=='tous'?'':'none';
+  $('qCount').textContent=visible.length+' arrêt'+(visible.length>1?'s':'')+' sur '+stops.length+(found>visible.length?' ('+(found-visible.length)+' hors filtre)':'');
+  if(tab==='carte'){updateMap(); return;}
+  if(!stops.length){$('list').innerHTML='<div class="empty">Aucun arrêt sur cette feuille.</div>';return;}
+  let h='', sec='';
+  visible.forEach(i=>{
+    const s=stops[i];
     if(s.origine==='ajout_tri'&&sec!=='ajout'){sec='ajout'; h+='<div class="sec">➕ Ajoutés au tri</div>';}
-    const a=s.colis[0], label=a.position||a.position_label||'+'+idx;
-    // clients de l'arrêt déjà prévenus
-    const sentKeys=[...new Set(s.colis.map(c=>clientOf.get(c)).filter(cl=>cl&&sent[cl.key]).map(cl=>cl.key))];
-    // contacts distincts de l'arrêt (plusieurs colis peuvent avoir le même client)
-    const contacts=[]; s.colis.forEach(c=>{const k=norm(c.nom)+'|'+String(c.tel||'').replace(/\D/g,'')+'|'+norm(c.email); if(!contacts.some(x=>x.k===k)) contacts.push({k,c});});
-    h+='<div class="stop'+(fait?' done':'')+'"><div class="stop-h"><div class="num">'+esc(label)+'</div><div class="addr">'+
-      '<div class="a1">'+(a.adresse?esc(a.adresse):'<span style="color:var(--muted)">Adresse inconnue</span>')+'</div>'+
-      '<div class="a2">'+esc([a.cp,a.ville].filter(Boolean).join(' '))+(s.colis.length>1?' · <b style="color:var(--accent)">'+s.colis.length+' colis</b>':'')+'</div></div>'+
-      '<label class="fait"><input type="checkbox" data-done="'+i+'"'+(fait?' checked':'')+'/>Fait</label></div>'+
-      (sentKeys.length?'<div class="sent">✉️ SMS envoyé '+fmtHM(Math.max(...sentKeys.map(k=>sent[k])))+' <button data-unsent="'+esc(sentKeys.join(','))+'">annuler</button></div>':'')+
-      contacts.map(({c})=>{
-        const tel=phoneOk(c.tel), mail=emailOk(c.email), cl=clientOf.get(c);
-        return '<div class="contact"><div class="who">'+(c.nom?esc(c.nom):'<small>Nom inconnu</small>')+(tel?' <small>· '+esc(c.tel)+'</small>':'')+'</div>'+
-          ((tel||mail)?'<div class="btns">'+
-            (tel?'<a class="btn call" href="tel:'+esc(telOf(c.tel))+'">📞 Appeler</a>'+(cl?'<button class="btn" data-sms="'+esc(cl.key)+'">💬 SMS</button>':'')+'<button class="btn" data-copy="'+esc(c.tel)+'">📋 Numéro</button>':'')+
-            (mail?'<button class="btn" data-copy="'+esc(String(c.email).trim())+'">📋 E-mail</button>':'')+'</div>'
-            :'<div style="font-size:13px;color:var(--muted)">Pas de numéro ni d\'e-mail utilisable</div>')+'</div>';
-      }).join('')+
-      '<div class="colis">'+s.colis.map(c=>'<div class="cl"><span>'+(c.position_label?'<b style="color:var(--accent);font-family:inherit">'+esc(c.position_label)+'</b> · ':'')+esc(c.tn)+(c.lp?' · '+esc(c.lp):'')+'</span><button class="mini" data-copy="'+esc(c.tn)+'">📋 TN</button></div>').join('')+'</div>'+
-      '<div class="navrow"><a class="btn nav" href="'+esc(navHref(s,'gmaps'))+'" target="_blank" rel="noopener">🧭 Google Maps</a><a class="btn nav" href="'+esc(navHref(s,'waze'))+'" target="_blank" rel="noopener">🚗 Waze</a></div></div>';
+    h+=stopHtml(s,i,clientOf);
   });
-  $('qCount').style.display=words.length?'':'none';
-  $('qCount').textContent=shown+' arrêt'+(shown>1?'s':'')+' sur '+stops.length+(hide&&found>shown?' ('+(found-shown)+' fait'+(found-shown>1?'s':'')+' masqué'+(found-shown>1?'s':'')+')':'');
-  $('list').innerHTML=h||(words.length&&!found?'<div class="empty">🔍 Aucun arrêt trouvé.</div>':'<div class="empty">✅ Tous les arrêts sont faits.</div>');
+  $('list').innerHTML=h||(words.length&&!found?'<div class="empty">🔍 Aucun arrêt trouvé.</div>':filter==='afaire'?'<div class="empty">✅ Tous les arrêts sont terminés.</div>':'<div class="empty">Aucun arrêt dans ce filtre.</div>');
 }
-$('list').addEventListener('change',e=>{
-  const i=e.target.dataset.done; if(i==null) return;
-  const s=buildStops()[Number(i)]; s.colis.forEach(c=>{if(e.target.checked) done[c.tn]=Date.now(); else delete done[c.tn];});
-  saveDone(); render();
-});
-$('list').addEventListener('click',async e=>{
+
+// ══════════════ ACTIONS (liste et fiches de la carte) ══════════════
+document.addEventListener('click',async e=>{
+  const f=e.target.closest('[data-filter]'); if(f){filter=f.dataset.filter; render(); return;}
+  const tb=e.target.closest('[data-tab]'); if(tb){setTab(tb.dataset.tab); return;}
+  const stb=e.target.closest('[data-st]');
+  if(stb){
+    const tn=stb.dataset.tn, s=stb.dataset.st;
+    keepPopup();
+    if(s==='echec') openFail(tn);
+    else{setStatus(tn,s,'',''); if(s==='livre') toast('✅ Livré : '+tn);}
+    return;
+  }
+  const all=e.target.closest('[data-all]');
+  if(all){
+    const s=view.stops[Number(all.dataset.all)]; keepPopup();
+    s.colis.forEach(c=>{if(stOf(c.tn)==='a_faire') setStatus(c.tn,'livre','','',null,true);});
+    saveStat(); render(); flushSoon(); toast('✅ Arrêt livré');
+    return;
+  }
   const sms=e.target.closest('[data-sms]');
   if(sms){const cl=buildClients().clients.find(c=>c.key===sms.dataset.sms); if(cl) sendClient(cl); return;}
   const un=e.target.closest('[data-unsent]');
@@ -347,7 +528,23 @@ $('list').addEventListener('click',async e=>{
   try{await navigator.clipboard.writeText(t); toast('Copié : '+t);}
   catch(err){const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Copié : '+t);}catch(_){toast('Copie impossible');} ta.remove();}
 });
-$('hideDone').addEventListener('change',render);
+// ── Échec : motif obligatoire, commentaire facultatif ──
+let failTn='';
+$('failMotifs').innerHTML=MOTIFS.map(([k,t])=>'<label class="motif"><input type="radio" name="motif" value="'+k+'"/> '+esc(t)+'</label>').join('');
+function openFail(tn){
+  failTn=tn; $('failTn').textContent=tn;
+  document.querySelectorAll('[name=motif]').forEach(r=>{r.checked=false;}); $('failCom').value='';
+  $('failModal').style.display='flex';
+}
+$('failCancel').addEventListener('click',()=>{$('failModal').style.display='none';});
+$('failOk').addEventListener('click',()=>{
+  const m=(document.querySelector('[name=motif]:checked')||{}).value;
+  if(!m){toast('Choisissez le motif de l\'échec');return;}
+  $('failModal').style.display='none';
+  keepPopup();
+  setStatus(failTn,'echec',m,$('failCom').value.trim().slice(0,500));
+  toast('❌ Échec enregistré : '+motifTxt(m));
+});
 $('q').value='';   // la recherche n'est jamais mémorisée
 $('q').addEventListener('input',render);
 $('qClear').addEventListener('click',()=>{$('q').value=''; render(); $('q').focus();});
@@ -358,11 +555,122 @@ $('btnTplReset').addEventListener('click',()=>{
   $('smsTpl').value=SMS_DEF; toast('Modèle réinitialisé');
 });
 
-// ══════════════ HORS LIGNE : la page elle-même est gardée par un service worker (réseau d'abord) ══════════════
+// ══════════════ CARTE ══════════════
+const COL={'':'#6e7681','s-ok':'#2ea84a','s-ko':'#e53935','s-mix':'#f08c00'};
+function setTab(t){
+  tab=t;
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  $('list').style.display=t==='liste'?'':'none';
+  $('mapBox').style.display=t==='carte'?'':'none';
+  if(t==='carte'){initMap(); render(); if(map) setTimeout(()=>map.invalidateSize(),50);} else render();
+}
+function setMapMsg(){
+  const parts=[];
+  if(!window.L) parts.push('🗺 Carte indisponible : la carte n\'a pas pu être chargée (pas de réseau). La liste reste utilisable.');
+  else{
+    if(tileErr) parts.push('🗺 Fond de carte indisponible (pas de réseau) : les points restent affichés.');
+    if(routeMsg) parts.push(routeMsg);
+    if(view){const n=view.stops.filter(s=>!s.colis.some(c=>c.lat&&c.lon)).length; if(n) parts.push(n+' arrêt'+(n>1?'s':'')+' sans coordonnées (non affiché'+(n>1?'s':'')+').');}
+  }
+  $('mapMsg').className='mapmsg'+(tileErr||!window.L?' warn':''); $('mapMsg').textContent=parts.join(' · ');
+}
+function initMap(){
+  if(map||!window.L){setMapMsg(); return;}
+  map=L.map('map',{zoomControl:true});
+  const tiles=L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',subdomains:'abc',maxZoom:20});
+  tiles.on('tileerror',()=>{tileErr++; setMapMsg();});
+  tiles.on('tileload',()=>{if(tileErr){tileErr=0; setMapMsg();}});
+  tiles.addTo(map);
+  markers=L.layerGroup().addTo(map);
+  map.setView([45.75,4.85],11);
+  map.on('popupclose',()=>{if(!keepPopup.on) reopenIdx=null; document.querySelector('.maptools').style.display='';});
+  map.on('popupopen',()=>{document.querySelector('.maptools').style.display='none';});   // les boutons ne recouvrent pas la fiche
+}
+const ptOf=s=>{const c=s.colis.find(x=>x.lat&&x.lon); return c?[Number(c.lat),Number(c.lon)]:null;};
+function keepPopup(){keepPopup.on=true; setTimeout(()=>{keepPopup.on=false;},0);}
+function updateMap(){
+  if(!map||!view){setMapMsg(); return;}
+  markers.clearLayers();
+  const pts=[]; let reopen=null;
+  view.visible.forEach(i=>{
+    const s=view.stops[i], p=ptOf(s); if(!p) return;
+    const st=view.states[i];
+    const icon=L.divIcon({className:'',html:'<div class="mk" style="background:'+COL[st.cls]+'">'+esc(s.label)+'</div>',iconSize:null,iconAnchor:[14,14]});
+    const m=L.marker(p,{icon,zIndexOffset:st.fin?0:1000}).bindPopup(()=>stopHtml(s,i,view.clientOf),{maxWidth:320,autoPanPaddingTopLeft:[10,120]});
+    m.on('popupopen',()=>{reopenIdx=i;});
+    m.addTo(markers); pts.push(p);
+    if(i===reopenIdx) reopen=m;
+  });
+  if(!fitted&&pts.length){fitAll(); fitted=true;}
+  if(reopen) setTimeout(()=>reopen.openPopup(),0);
+  drawRoute(); setMapMsg();
+}
+function fitAll(){
+  if(!map||!view) return;
+  const pts=view.stops.map(ptOf).filter(Boolean);
+  if(pts.length===1) map.setView(pts[0],16); else if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(.08));
+}
+$('btnFit').addEventListener('click',fitAll);
+// ── « Me localiser » : la position est seulement affichée, jamais enregistrée ni envoyée ──
+$('btnLocate').addEventListener('click',()=>{
+  if(!map) return;
+  if(!navigator.geolocation){toast('Localisation indisponible sur ce téléphone');return;}
+  toast('📍 Localisation…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const p=[pos.coords.latitude,pos.coords.longitude];
+    if(meLayer) map.removeLayer(meLayer);
+    meLayer=L.layerGroup([L.circle(p,{radius:Math.min(pos.coords.accuracy||30,300),color:'#3987e5',weight:1,fillOpacity:.12}),
+      L.circleMarker(p,{radius:8,color:'#fff',weight:3,fillColor:'#3987e5',fillOpacity:1})]).addTo(map);
+    map.setView(p,Math.max(map.getZoom(),16));
+  },()=>toast('Position introuvable (autorisez la localisation)',3000),{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+});
+// ── Itinéraire routier dans l'ordre de la feuille (OSRM par tronçons de 25 points), gardé pour la journée ──
+async function drawRoute(){
+  if(!map||!view) return;
+  const pts=view.stops.map(ptOf).filter(Boolean);
+  if(pts.length<2) return;
+  const sig=pts.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';');
+  if(sig===routeSig) return;
+  routeSig=sig;
+  const c=lsGet(ROUTE_KEY,null);
+  if(c&&c.t===jeton&&c.sig===sig&&Array.isArray(c.path)){paintRoute(c.path,false); return;}
+  paintRoute(pts,true,true);   // en attendant : lignes droites
+  const path=[]; let approx=false;
+  for(let i=0;i<pts.length-1;i+=24){
+    const seg=pts.slice(i,Math.min(i+25,pts.length));
+    let geo=null;
+    try{
+      const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),15000);
+      const r=await fetch(OSRM+seg.map(p=>p[1]+','+p[0]).join(';')+'?overview=full&geometries=geojson',{signal:ctl.signal});
+      clearTimeout(tm);
+      const j=await r.json();
+      if(j.code==='Ok'&&j.routes&&j.routes[0]) geo=j.routes[0].geometry.coordinates.map(x=>[x[1],x[0]]);
+    }catch(e){}
+    if(routeSig!==sig) return;   // la tournée a changé pendant le calcul
+    if(!geo){geo=seg; approx=true;}   // repli : lignes droites pour ce tronçon
+    path.push(...(path.length?geo.slice(1):geo));
+  }
+  paintRoute(path,approx);
+  if(!approx) lsSet(ROUTE_KEY,{t:jeton,sig,path});
+}
+function paintRoute(path,approx,pending){
+  if(routeLayer) map.removeLayer(routeLayer);
+  routeLayer=approx
+    ?L.polyline(path,{color:'#f0b429',weight:3,opacity:.7,dashArray:'6,8'})
+    :L.layerGroup([L.polyline(path,{color:'#000',weight:8,opacity:.35}),L.polyline(path,{color:'#f0b429',weight:4.5,opacity:.95})]);
+  routeLayer.addTo(map);
+  if(routeLayer.bringToBack) routeLayer.bringToBack();
+  routeMsg=pending?'⏳ Calcul de l\'itinéraire…':approx?'Itinéraire approximatif (lignes droites) : service d\'itinéraire indisponible.':'';
+  setMapMsg();
+}
+
+// ══════════════ HORS LIGNE : la page et la carte (Leaflet) sont gardées par un service worker (réseau d'abord) ══════════════
 if('serviceWorker' in navigator&&location.protocol==='https:'){
   navigator.serviceWorker.register('feuille_route_sw.js').catch(()=>{});
 }
-load();
+// file des statuts d'un lien expiré depuis plus de 3 h : effacée
+(function(){const q=qLoad(), now=Date.now(); let ch=false; Object.keys(q).forEach(t=>{if(!(q[t].until>now)){delete q[t]; ch=true;}}); if(ch) qSave(q);})();
+renderSync(); flush(); load();
 </script>
 </body>
 </html>
